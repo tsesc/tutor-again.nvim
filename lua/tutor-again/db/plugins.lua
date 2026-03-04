@@ -429,4 +429,61 @@ require("lazy").setup("plugins") -- loads lua/plugins/*.lua]],
   end,
 }]],
   },
+
+  -- ═══════════════════════════════════════════
+  -- Plugin usage guides (no install field)
+  -- ═══════════════════════════════════════════
+
+  -- lazy.nvim usage
+  { keys = ":Lazy", name = "Open lazy.nvim manager UI", name_zh = "開啟 lazy.nvim 管理介面", tags = { "lazy", "plugin", "manager", "ui", "套件", "管理", "介面" }, category = "plugins.usage.lazy", mnemonic = ":Lazy = plugin manager dashboard", description = "Open the lazy.nvim UI to install, update, clean, and check plugins." },
+  { keys = ":Lazy sync", name = "Sync all plugins", name_zh = "同步所有套件（安裝+更新+清理）", tags = { "lazy", "sync", "update", "install", "同步", "更新", "安裝" }, category = "plugins.usage.lazy", mnemonic = ":Lazy sync = install + update + clean", description = "Install missing plugins, update existing ones, and remove unused ones." },
+  { keys = ":Lazy update", name = "Update all plugins", name_zh = "更新所有套件", tags = { "lazy", "update", "更新", "套件" }, category = "plugins.usage.lazy", mnemonic = ":Lazy update = pull latest", description = "Update all installed plugins to their latest version." },
+  { keys = ":Lazy clean", name = "Remove unused plugins", name_zh = "清除未使用的套件", tags = { "lazy", "clean", "remove", "清除", "移除" }, category = "plugins.usage.lazy", mnemonic = ":Lazy clean = remove orphans", description = "Remove plugins that are no longer in your config." },
+
+  -- Neo-tree usage
+  { keys = "<leader>e", name = "Toggle file explorer", name_zh = "開關檔案瀏覽器", tags = { "neo-tree", "file", "tree", "explorer", "toggle", "檔案", "瀏覽器", "開關" }, category = "plugins.usage.neo-tree", mnemonic = "<leader>e = explorer (if using neo-tree)", description = "Toggle the neo-tree file explorer sidebar. Default <leader> is \\ (recommend setting to Space)." },
+  { keys = "<CR> (neo-tree)", name = "Open file / expand folder", name_zh = "開啟檔案 / 展開資料夾", tags = { "neo-tree", "open", "file", "folder", "expand", "開啟", "檔案", "資料夾", "展開" }, category = "plugins.usage.neo-tree", mnemonic = "Enter = open", description = "In neo-tree: open the file or expand/collapse the folder under cursor." },
+  { keys = "a (neo-tree)", name = "Add file or directory", name_zh = "新增檔案或資料夾", tags = { "neo-tree", "add", "new", "file", "directory", "folder", "create", "新增", "檔案", "資料夾", "建立" }, category = "plugins.usage.neo-tree", mnemonic = "a = add (end with / for directory)", description = "In neo-tree: create a new file. Add trailing / to create a directory instead." },
+  { keys = "d (neo-tree)", name = "Delete file", name_zh = "刪除檔案", tags = { "neo-tree", "delete", "remove", "file", "刪除", "檔案" }, category = "plugins.usage.neo-tree", mnemonic = "d = delete", description = "In neo-tree: delete the file or directory under cursor (with confirmation)." },
+  { keys = "r (neo-tree)", name = "Rename file", name_zh = "重新命名檔案", tags = { "neo-tree", "rename", "file", "重新命名", "改名", "檔案" }, category = "plugins.usage.neo-tree", mnemonic = "r = rename", description = "In neo-tree: rename the file or directory under cursor." },
+  { keys = "c (neo-tree)", name = "Copy file", name_zh = "複製檔案", tags = { "neo-tree", "copy", "file", "複製", "檔案" }, category = "plugins.usage.neo-tree", mnemonic = "c = copy", description = "In neo-tree: copy the file under cursor to a new location." },
+  { keys = "m (neo-tree)", name = "Move file", name_zh = "移動檔案", tags = { "neo-tree", "move", "file", "移動", "檔案" }, category = "plugins.usage.neo-tree", mnemonic = "m = move", description = "In neo-tree: move the file under cursor to a new location." },
+  { keys = "R (neo-tree)", name = "Refresh file tree", name_zh = "重新整理檔案樹", tags = { "neo-tree", "refresh", "reload", "重新整理", "刷新" }, category = "plugins.usage.neo-tree", mnemonic = "R = refresh", description = "In neo-tree: refresh the file tree to reflect filesystem changes." },
+  { keys = "? (neo-tree)", name = "Show neo-tree help", name_zh = "顯示 neo-tree 快捷鍵說明", tags = { "neo-tree", "help", "keys", "說明", "快捷鍵" }, category = "plugins.usage.neo-tree", mnemonic = "? = help in neo-tree", description = "In neo-tree: show all available keybindings." },
+  { keys = "H (neo-tree)", name = "Toggle hidden files", name_zh = "顯示/隱藏隱藏檔", tags = { "neo-tree", "hidden", "dotfile", "toggle", "隱藏檔", "顯示" }, category = "plugins.usage.neo-tree", mnemonic = "H = hidden files", description = "In neo-tree: toggle visibility of hidden/dot files." },
+  { keys = "P (neo-tree)", name = "Preview file", name_zh = "預覽檔案", tags = { "neo-tree", "preview", "file", "預覽", "檔案" }, category = "plugins.usage.neo-tree", mnemonic = "P = preview without opening", description = "In neo-tree: preview file content without leaving the tree." },
+
+  -- Telescope usage
+  { keys = "<leader>ff", name = "Find files", name_zh = "搜尋檔案", tags = { "telescope", "find", "file", "搜尋", "檔案" }, category = "plugins.usage.telescope", mnemonic = "ff = find files", description = "Open Telescope file finder. Type to fuzzy-search file names." },
+  { keys = "<leader>fg", name = "Live grep (search text)", name_zh = "全域文字搜尋", tags = { "telescope", "grep", "search", "text", "搜尋", "文字", "全域" }, category = "plugins.usage.telescope", mnemonic = "fg = find grep", description = "Search text across all files using live grep. Requires ripgrep." },
+  { keys = "<leader>fb", name = "Browse buffers", name_zh = "瀏覽已開啟的 buffer", tags = { "telescope", "buffer", "browse", "瀏覽", "緩衝區" }, category = "plugins.usage.telescope", mnemonic = "fb = find buffer", description = "List and switch between open buffers." },
+  { keys = "<leader>fh", name = "Search help tags", name_zh = "搜尋說明文件", tags = { "telescope", "help", "search", "doc", "搜尋", "說明", "文件" }, category = "plugins.usage.telescope", mnemonic = "fh = find help", description = "Search Neovim help documentation." },
+  { keys = "<C-p> (telescope)", name = "Scroll up in preview", name_zh = "在預覽中向上捲動", tags = { "telescope", "scroll", "preview", "up", "預覽", "捲動" }, category = "plugins.usage.telescope", mnemonic = "Ctrl-p = preview up (in telescope)", description = "In Telescope: scroll the preview pane up." },
+  { keys = "<C-n> (telescope)", name = "Next result / scroll down", name_zh = "下一個結果", tags = { "telescope", "next", "down", "scroll", "下一個" }, category = "plugins.usage.telescope", mnemonic = "Ctrl-n = next (in telescope)", description = "In Telescope: move to next result in the list." },
+
+  -- Mason usage
+  { keys = ":Mason", name = "Open Mason installer UI", name_zh = "開啟 Mason 安裝管理介面", tags = { "mason", "install", "lsp", "ui", "安裝", "管理" }, category = "plugins.usage.mason", mnemonic = ":Mason = LSP/tool installer UI", description = "Open Mason UI to browse, install, and manage LSP servers, formatters, and linters." },
+  { keys = ":MasonInstall {name}", name = "Install a tool via Mason", name_zh = "用 Mason 安裝工具", tags = { "mason", "install", "安裝" }, category = "plugins.usage.mason", mnemonic = ":MasonInstall lua-language-server", description = "Install a specific LSP server, formatter, or linter. e.g. :MasonInstall pyright" },
+
+  -- LSP usage
+  { keys = "gd (LSP)", name = "Go to definition", name_zh = "跳到定義", tags = { "lsp", "definition", "goto", "跳", "定義" }, category = "plugins.usage.lsp", mnemonic = "gd = go definition (LSP)", description = "Jump to where the symbol under cursor is defined. Requires LSP server running." },
+  { keys = "K (LSP)", name = "Hover documentation", name_zh = "顯示懸停文件", tags = { "lsp", "hover", "doc", "help", "文件", "說明", "懸停" }, category = "plugins.usage.lsp", mnemonic = "K = show docs (LSP)", description = "Show documentation/type info for the symbol under cursor in a floating window." },
+  { keys = "<leader>rn (LSP)", name = "Rename symbol", name_zh = "重新命名符號", tags = { "lsp", "rename", "refactor", "重新命名", "重構" }, category = "plugins.usage.lsp", mnemonic = "rn = rename (LSP)", description = "Rename the symbol under cursor across the entire project." },
+  { keys = "<leader>ca (LSP)", name = "Code action", name_zh = "程式碼動作", tags = { "lsp", "code", "action", "fix", "quickfix", "程式碼", "動作", "修復" }, category = "plugins.usage.lsp", mnemonic = "ca = code action (LSP)", description = "Show available code actions (auto-fix, refactor, extract) for the current position." },
+  { keys = "gl (LSP)", name = "Show line diagnostics", name_zh = "顯示當前行的診斷訊息", tags = { "lsp", "diagnostic", "error", "warning", "line", "診斷", "錯誤", "警告" }, category = "plugins.usage.lsp", mnemonic = "gl = line diagnostic (LSP)", description = "Show diagnostic messages (errors, warnings) for the current line in a floating window." },
+  { keys = "]d (LSP)", name = "Next diagnostic", name_zh = "下一個診斷訊息", tags = { "lsp", "diagnostic", "next", "error", "診斷", "下一個" }, category = "plugins.usage.lsp", mnemonic = "]d = next diagnostic (LSP)", description = "Jump to the next diagnostic (error/warning) in the buffer." },
+  { keys = "[d (LSP)", name = "Previous diagnostic", name_zh = "上一個診斷訊息", tags = { "lsp", "diagnostic", "previous", "error", "診斷", "上一個" }, category = "plugins.usage.lsp", mnemonic = "[d = prev diagnostic (LSP)", description = "Jump to the previous diagnostic (error/warning) in the buffer." },
+  { keys = "gr (LSP)", name = "Find references", name_zh = "查找所有參考", tags = { "lsp", "references", "find", "usage", "參考", "查找", "使用" }, category = "plugins.usage.lsp", mnemonic = "gr = go references (LSP)", description = "Find all references to the symbol under cursor across the project." },
+
+  -- Gitsigns usage
+  { keys = "]c (gitsigns)", name = "Next git hunk", name_zh = "下一個 Git 變更區塊", tags = { "git", "gitsigns", "hunk", "next", "diff", "變更", "下一個" }, category = "plugins.usage.gitsigns", mnemonic = "]c = next change", description = "Jump to the next git change hunk in the buffer." },
+  { keys = "[c (gitsigns)", name = "Previous git hunk", name_zh = "上一個 Git 變更區塊", tags = { "git", "gitsigns", "hunk", "previous", "diff", "變更", "上一個" }, category = "plugins.usage.gitsigns", mnemonic = "[c = prev change", description = "Jump to the previous git change hunk in the buffer." },
+  { keys = "<leader>hs (gitsigns)", name = "Stage hunk", name_zh = "暫存變更區塊", tags = { "git", "gitsigns", "stage", "hunk", "暫存", "變更" }, category = "plugins.usage.gitsigns", mnemonic = "hs = hunk stage", description = "Stage the git hunk under cursor (like git add for just this change)." },
+  { keys = "<leader>hr (gitsigns)", name = "Reset hunk", name_zh = "還原變更區塊", tags = { "git", "gitsigns", "reset", "hunk", "undo", "還原", "變更" }, category = "plugins.usage.gitsigns", mnemonic = "hr = hunk reset", description = "Discard the git hunk under cursor (revert to last commit)." },
+  { keys = "<leader>hb (gitsigns)", name = "Blame current line", name_zh = "顯示當前行的 Git blame", tags = { "git", "gitsigns", "blame", "line", "author", "blame", "作者" }, category = "plugins.usage.gitsigns", mnemonic = "hb = hunk blame", description = "Show git blame info for the current line (who changed it and when)." },
+
+  -- Comment.nvim usage
+  { keys = "gcc", name = "Toggle line comment", name_zh = "切換行註解", tags = { "comment", "toggle", "line", "註解", "切換", "行" }, category = "plugins.usage.comment", mnemonic = "gcc = go comment comment", description = "Toggle comment on the current line. Requires Comment.nvim plugin." },
+  { keys = "gc{motion}", name = "Toggle comment with motion", name_zh = "用動作切換註解", tags = { "comment", "toggle", "motion", "block", "註解", "切換" }, category = "plugins.usage.comment", mnemonic = "gc = go comment + motion", description = "Toggle comment for the range of {motion}. e.g. gcap = comment paragraph, gc3j = comment 3 lines down." },
+  { keys = "gbc", name = "Toggle block comment", name_zh = "切換區塊註解", tags = { "comment", "block", "toggle", "註解", "區塊" }, category = "plugins.usage.comment", mnemonic = "gbc = go block comment", description = "Toggle block comment (/* */) on the current line. Requires Comment.nvim." },
 }

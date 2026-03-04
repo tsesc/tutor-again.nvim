@@ -1,4 +1,8 @@
 return {
+  -- Leader key
+  { keys = "vim.g.mapleader = ' '", name = "Set leader key to Space", name_zh = "設定 Leader 鍵為空白鍵", tags = { "leader", "key", "space", "mapleader", "快捷鍵", "空白鍵" }, category = "settings.keymap", mnemonic = "mapleader = your personal prefix key", description = "Set the leader key to Space. Put this at the TOP of init.lua, before lazy.nvim setup. Then <leader>ff means Space+f+f." },
+  { keys = "vim.g.maplocalleader = ' '", name = "Set local leader key", name_zh = "設定 Local Leader 鍵", tags = { "leader", "local", "key", "快捷鍵" }, category = "settings.keymap", mnemonic = "localleader = filetype-specific prefix", description = "Set the local leader key (used by some plugins for filetype-specific mappings)" },
+
   -- Line numbers
   { keys = "set number", name = "Show line numbers", name_zh = "顯示行號", tags = { "number", "line", "行號", "顯示", "設定" }, category = "settings.display", mnemonic = "number = line numbers", description = "Display line numbers in the gutter" },
   { keys = "set relativenumber", name = "Relative line numbers", name_zh = "顯示相對行號", tags = { "relative", "number", "line", "相對", "行號" }, category = "settings.display", mnemonic = "relativenumber = relative to cursor", description = "Show line numbers relative to cursor position. Combine with 'number' for hybrid mode." },
