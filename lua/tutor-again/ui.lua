@@ -107,6 +107,10 @@ function M._highlight_selected()
   local line_count = vim.api.nvim_buf_line_count(state.results_buf)
   if state.selected_idx >= 1 and state.selected_idx <= line_count then
     vim.api.nvim_buf_add_highlight(state.results_buf, vim.api.nvim_create_namespace("tutor_again_sel"), "CursorLine", state.selected_idx - 1, 0, -1)
+    -- Scroll results window to keep selected line visible
+    if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
+      vim.api.nvim_win_set_cursor(state.results_win, { state.selected_idx, 0 })
+    end
   end
 end
 
