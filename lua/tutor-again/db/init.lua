@@ -5,7 +5,7 @@ local entries = nil
 function M.all()
   if entries then return entries end
   entries = {}
-  local modules = { "movement", "operators" }
+  local modules = { "movement", "operators", "text_objects", "insert", "visual" }
   for _, mod in ipairs(modules) do
     local data = require("tutor-again.db." .. mod)
     for _, entry in ipairs(data) do

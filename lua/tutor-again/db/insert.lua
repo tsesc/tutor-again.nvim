@@ -1,0 +1,10 @@
+return {
+  { keys = "i", name = "Insert before cursor", name_zh = "在游標前插入", tags = { "insert", "before", "插入", "前" }, category = "insert", mnemonic = "i=insert", description = "Enter insert mode before the cursor", related = { "a", "I", "A" } },
+  { keys = "a", name = "Append after cursor", name_zh = "在游標後插入", tags = { "append", "after", "insert", "插入", "後" }, category = "insert", mnemonic = "a=append", description = "Enter insert mode after the cursor", related = { "i", "A" } },
+  { keys = "I", name = "Insert at line start", name_zh = "在行首插入", tags = { "insert", "line", "start", "beginning", "插入", "行首" }, category = "insert", mnemonic = "I=Insert at start", description = "Enter insert mode at the first non-blank character of the line", related = { "i", "A", "^" } },
+  { keys = "A", name = "Append at line end", name_zh = "在行尾插入", tags = { "append", "line", "end", "insert", "插入", "行尾" }, category = "insert", mnemonic = "A=Append at end", description = "Enter insert mode at the end of the line", related = { "a", "I", "$" } },
+  { keys = "o", name = "Open line below", name_zh = "在下方開新行", tags = { "open", "line", "below", "new", "新行", "下方" }, category = "insert", mnemonic = "o=open below", description = "Insert a new line below and enter insert mode", related = { "O" } },
+  { keys = "O", name = "Open line above", name_zh = "在上方開新行", tags = { "open", "line", "above", "new", "新行", "上方" }, category = "insert", mnemonic = "O=Open above", description = "Insert a new line above and enter insert mode", related = { "o" } },
+  { keys = "gi", name = "Insert at last position", name_zh = "在上次插入位置繼續", tags = { "insert", "last", "position", "resume", "插入", "上次" }, category = "insert", mnemonic = "gi=go insert (where I left off)", description = "Enter insert mode at the last insert position", related = { "i", "`^" } },
+  { keys = "Ctrl-o", name = "Insert normal mode", name_zh = "插入模式中執行一次普通指令", tags = { "insert", "normal", "one", "command", "插入", "普通", "指令" }, category = "insert", mnemonic = "Ctrl-o = one normal command", description = "Execute one normal mode command then return to insert mode", related = { "i", "Esc" } },
+}
