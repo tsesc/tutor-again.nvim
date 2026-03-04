@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-integration
+.PHONY: test test-unit test-integration dev
 
 test:
 	nvim --headless -u scripts/minimal_init.lua \
@@ -15,3 +15,6 @@ test-integration:
 	nvim --headless -u scripts/minimal_init.lua \
 		-c "lua MiniTest.run_file('tests/test_integration.lua')" \
 		-c "qall!" 2>&1
+
+dev:
+	nvim -u NONE -c "lua vim.opt.rtp:prepend('$(CURDIR)'); require('tutor-again').setup({}); vim.cmd('TutorAgain')"

@@ -76,7 +76,7 @@ make test-unit
 make test-integration
 
 # Manual test (from project root)
-nvim -u NONE --cmd "set rtp+=$(pwd)" -c "lua require('tutor-again').setup({})" -c TutorAgain
+make dev
 ```
 
 ## License
