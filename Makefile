@@ -17,4 +17,4 @@ test-integration:
 		-c "qall!" 2>&1
 
 dev:
-	nvim -u NONE -c "lua vim.opt.rtp:prepend('$(CURDIR)'); require('tutor-again').setup({}); vim.cmd('TutorAgain')"
+	nvim -u NONE -c "lua vim.opt.rtp:prepend('$(CURDIR)'); require('tutor-again').setup({})"

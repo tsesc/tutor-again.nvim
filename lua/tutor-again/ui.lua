@@ -11,7 +11,36 @@ local state = {
   results_win = nil,
   current_results = {},
   selected_idx = 1,
+  lang = nil, -- nil means use config default
 }
+
+local function get_lang()
+  if state.lang then return state.lang end
+  local config = require("tutor-again").config
+  return config.lang or "zh-TW"
+end
+
+local function toggle_lang()
+  local current = get_lang()
+  if current == "zh-TW" then
+    state.lang = "en"
+  else
+    state.lang = "zh-TW"
+  end
+end
+
+local function entry_display_name(entry)
+  if get_lang() == "zh-TW" then
+    return entry.name_zh or entry.name
+  else
+    return entry.name
+  end
+end
+
+local function lang_label()
+  if get_lang() == "zh-TW" then return "中文" end
+  return "EN"
+end
 
 local function close()
   if state.input_win and vim.api.nvim_win_is_valid(state.input_win) then
@@ -22,6 +51,12 @@ local function close()
   end
   state.input_win = nil
   state.results_win = nil
+end
+
+local function get_current_query()
+  if not state.input_buf or not vim.api.nvim_buf_is_valid(state.input_buf) then return "" end
+  local lines = vim.api.nvim_buf_get_lines(state.input_buf, 0, 1, false)
+  return vim.fn.trim(lines[1] or "")
 end
 
 local function render_results(query)
@@ -48,7 +83,7 @@ local function render_results(query)
     state.current_results = {}
     for i, entry in ipairs(results) do
       if i > 20 then break end
-      local display = string.format("  %-8s %s", entry.keys, entry.name_zh or entry.name)
+      local display = string.format("  %-8s %s", entry.keys, entry_display_name(entry))
       table.insert(lines, display)
       table.insert(state.current_results, { type = "entry", entry = entry })
     end
@@ -73,6 +108,14 @@ function M._highlight_selected()
   if state.selected_idx >= 1 and state.selected_idx <= line_count then
     vim.api.nvim_buf_add_highlight(state.results_buf, vim.api.nvim_create_namespace("tutor_again_sel"), "CursorLine", state.selected_idx - 1, 0, -1)
   end
+end
+
+local function update_input_title()
+  if not state.input_win or not vim.api.nvim_win_is_valid(state.input_win) then return end
+  vim.api.nvim_win_set_config(state.input_win, {
+    title = string.format(" tutor-again [%s] <Tab>=lang ", lang_label()),
+    title_pos = "center",
+  })
 end
 
 local function on_select()
@@ -116,7 +159,7 @@ function M.open()
     width = width,
     height = 1,
     border = "rounded",
-    title = " tutor-again [Local] ",
+    title = string.format(" tutor-again [%s] <Tab>=lang ", lang_label()),
     title_pos = "center",
     style = "minimal",
   })
@@ -164,13 +207,17 @@ function M.open()
 
   vim.keymap.set({ "i", "n" }, "<CR>", on_select, opts)
 
+  vim.keymap.set({ "i", "n" }, "<Tab>", function()
+    toggle_lang()
+    update_input_title()
+    render_results(get_current_query())
+  end, opts)
+
   -- Live search on text change
   vim.api.nvim_create_autocmd("TextChangedI", {
     buffer = state.input_buf,
     callback = function()
-      local lines = vim.api.nvim_buf_get_lines(state.input_buf, 0, 1, false)
-      local query = vim.fn.trim(lines[1] or "")
-      render_results(query)
+      render_results(get_current_query())
     end,
   })
 
@@ -180,8 +227,9 @@ end
 function M.open_detail(entry)
   local width = 55
   local lines = {}
+  local is_zh = get_lang() == "zh-TW"
 
-  table.insert(lines, string.format("  %s — %s", entry.keys, entry.name_zh or entry.name))
+  table.insert(lines, string.format("  %s — %s", entry.keys, entry_display_name(entry)))
   table.insert(lines, string.rep("─", width - 2))
   table.insert(lines, "")
   if entry.mnemonic then
@@ -192,6 +240,10 @@ function M.open_detail(entry)
     table.insert(lines, "  " .. entry.description)
   end
   table.insert(lines, "")
+  if is_zh and entry.name_zh then
+    table.insert(lines, "  " .. entry.name_zh)
+    table.insert(lines, "")
+  end
   if entry.related and #entry.related > 0 then
     table.insert(lines, "  Related:")
     for _, r in ipairs(entry.related) do
@@ -201,7 +253,7 @@ function M.open_detail(entry)
   table.insert(lines, "")
   table.insert(lines, "  Category: " .. (entry.category or ""))
   table.insert(lines, "")
-  table.insert(lines, "  [q] close  [y] copy keys  [?] back to search")
+  table.insert(lines, "  [q] close  [y] copy keys  [?] back  [Tab] lang")
 
   local height = #lines
   local row = math.floor((vim.o.lines - height) / 2)
@@ -219,7 +271,7 @@ function M.open_detail(entry)
     width = width,
     height = height,
     border = "rounded",
-    title = " Detail ",
+    title = string.format(" Detail [%s] ", lang_label()),
     title_pos = "center",
     style = "minimal",
   })
@@ -243,6 +295,12 @@ function M.open_detail(entry)
   vim.keymap.set("n", "?", function()
     vim.api.nvim_win_close(win, true)
     M.open()
+  end, opts)
+
+  vim.keymap.set("n", "<Tab>", function()
+    toggle_lang()
+    vim.api.nvim_win_close(win, true)
+    M.open_detail(entry)
   end, opts)
 end
 
