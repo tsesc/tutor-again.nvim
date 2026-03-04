@@ -83,7 +83,14 @@ local function render_results(query)
     state.current_results = {}
     for i, entry in ipairs(results) do
       if i > 20 then break end
-      local display = string.format("  %-8s %s", entry.keys, entry_display_name(entry))
+      local keys_col = 24
+      local keys_str = entry.keys
+      -- Truncate very long keys
+      if #keys_str > keys_col - 1 then
+        keys_str = keys_str:sub(1, keys_col - 2) .. "…"
+      end
+      local padding = string.rep(" ", math.max(1, keys_col - #keys_str))
+      local display = "  " .. keys_str .. padding .. "│ " .. entry_display_name(entry)
       table.insert(lines, display)
       table.insert(state.current_results, { type = "entry", entry = entry })
     end
@@ -147,7 +154,7 @@ end
 function M.open()
   close()
 
-  local width = 60
+  local width = 70
   local total_height = 18
   local row = math.floor((vim.o.lines - total_height) / 2)
   local col = math.floor((vim.o.columns - width) / 2)
