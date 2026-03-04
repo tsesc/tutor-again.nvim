@@ -1,0 +1,97 @@
+local M = {}
+
+M._entries = {}
+M._path = nil
+M._max = 500
+
+function M._set_path(path)
+  M._path = path
+end
+
+function M._get_path()
+  if M._path then return M._path end
+  local config = require("tutor-again").config
+  if config.history and config.history.path then
+    M._path = config.history.path
+  else
+    M._path = vim.fn.stdpath("data") .. "/tutor-again/history.json"
+  end
+  return M._path
+end
+
+function M.load()
+  local path = M._get_path()
+  if vim.fn.filereadable(path) == 0 then
+    M._entries = {}
+    return
+  end
+  local ok, lines = pcall(vim.fn.readfile, path)
+  if not ok or #lines == 0 then
+    M._entries = {}
+    return
+  end
+  local raw = table.concat(lines, "\n")
+  local ok2, data = pcall(vim.fn.json_decode, raw)
+  if ok2 and type(data) == "table" then
+    M._entries = data
+  else
+    M._entries = {}
+  end
+end
+
+function M.save()
+  local path = M._get_path()
+  local dir = vim.fn.fnamemodify(path, ":h")
+  vim.fn.mkdir(dir, "p")
+  local ok, encoded = pcall(vim.fn.json_encode, M._entries)
+  if ok then
+    pcall(vim.fn.writefile, { encoded }, path)
+  end
+end
+
+function M.add(query)
+  if not query or query == "" then return end
+
+  -- Remove duplicate
+  for i, entry in ipairs(M._entries) do
+    if entry.query == query then
+      table.remove(M._entries, i)
+      break
+    end
+  end
+
+  -- Add to front
+  table.insert(M._entries, 1, {
+    query = query,
+    time = os.time(),
+  })
+
+  -- Trim
+  local max = M._max
+  local ok, ta = pcall(require, "tutor-again")
+  if ok and ta.config and ta.config.history and ta.config.history.max_entries then
+    max = ta.config.history.max_entries
+  end
+  while #M._entries > max do
+    table.remove(M._entries)
+  end
+
+  M.save()
+end
+
+function M.get_all()
+  if #M._entries == 0 then
+    M.load()
+  end
+  return M._entries
+end
+
+function M.format_time(timestamp)
+  local diff = os.time() - timestamp
+  if diff < 60 then return diff .. "s ago" end
+  if diff < 3600 then return math.floor(diff / 60) .. "m ago" end
+  if diff < 86400 then return math.floor(diff / 3600) .. "h ago" end
+  return math.floor(diff / 86400) .. "d ago"
+end
+
+return M
