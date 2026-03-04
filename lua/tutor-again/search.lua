@@ -30,6 +30,19 @@ function M.score(query, str)
   return 0
 end
 
+-- Category aliases for common search keywords
+local category_aliases = {
+  movement = { "control", "navigate", "cursor", "move", "scroll", "jump", "go", "控制", "移動", "游標", "跳" },
+  operators = { "edit", "operator", "modify", "操作", "編輯", "修改" },
+  text_objects = { "select", "object", "range", "選取", "物件", "範圍" },
+  insert = { "type", "input", "write", "輸入", "打字", "寫" },
+  visual = { "select", "highlight", "mark", "選取", "標記", "反白" },
+  search = { "find", "replace", "match", "pattern", "搜尋", "尋找", "取代", "替換" },
+  files = { "buffer", "window", "tab", "split", "file", "檔案", "視窗", "分割", "頁籤" },
+  settings = { "option", "config", "set", "設定", "選項", "配置" },
+  plugins = { "plugin", "package", "extension", "套件", "插件", "擴充" },
+}
+
 function M.best_score(query, entry)
   local best = 0
   best = math.max(best, M.score(query, entry.keys))
@@ -44,6 +57,16 @@ function M.best_score(query, entry)
   end
   if entry.description then
     best = math.max(best, M.score(query, entry.description))
+  end
+  if entry.category then
+    best = math.max(best, M.score(query, entry.category))
+    -- Check category aliases
+    local top = entry.category:match("^([^.]+)")
+    if top and category_aliases[top] then
+      for _, alias in ipairs(category_aliases[top]) do
+        best = math.max(best, M.score(query, alias))
+      end
+    end
   end
   return best
 end

@@ -60,4 +60,25 @@ T["search"]["finds by Chinese"] = function()
   eq(keys, "dd")
 end
 
+T["ui"] = new_set()
+
+T["ui"]["open_detail enters normal mode"] = function()
+  local mode = child.lua_get([[(function()
+    local ui = require("tutor-again.ui")
+    local entry = {
+      keys = "dd",
+      name = "Delete line",
+      name_zh = "刪除整行",
+      category = "operators",
+      mnemonic = "d=delete",
+      description = "Delete the current line",
+    }
+    -- Simulate coming from insert mode (like the search input)
+    vim.cmd("startinsert")
+    ui.open_detail(entry)
+    return vim.api.nvim_get_mode().mode
+  end)()]])
+  eq(mode, "n")
+end
+
 return T

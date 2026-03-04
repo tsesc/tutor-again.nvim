@@ -1,7 +1,7 @@
 local M = {}
 
 M.defaults = {
-  keymap = "?",
+  keymap = "<leader>?",
   lang = "zh-TW",
   history = {
     max_entries = 500,

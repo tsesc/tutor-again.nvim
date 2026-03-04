@@ -12,6 +12,8 @@ local state = {
   current_results = {},
   selected_idx = 1,
   lang = nil, -- nil means use config default
+  last_query = nil, -- preserve query when returning from detail
+  last_selected_idx = nil,
 }
 
 local function get_lang()
@@ -40,6 +42,24 @@ end
 local function lang_label()
   if get_lang() == "zh-TW" then return "中文" end
   return "EN"
+end
+
+local function short_category(cat)
+  if not cat or cat == "" then return "" end
+  -- Take top-level category only: "operators.delete" -> "operators"
+  local top = cat:match("^([^.]+)")
+  local map = {
+    movement = "move",
+    operators = "edit",
+    text_objects = "text-obj",
+    insert = "insert",
+    visual = "visual",
+    search = "search",
+    files = "file",
+    settings = "setting",
+    plugins = "plugin",
+  }
+  return map[top] or top
 end
 
 local function close()
@@ -83,14 +103,19 @@ local function render_results(query)
     state.current_results = {}
     for i, entry in ipairs(results) do
       if i > 20 then break end
-      local keys_col = 24
+      local keys_col = 20
       local keys_str = entry.keys
-      -- Truncate very long keys
       if #keys_str > keys_col - 1 then
         keys_str = keys_str:sub(1, keys_col - 2) .. "…"
       end
       local padding = string.rep(" ", math.max(1, keys_col - #keys_str))
-      local display = "  " .. keys_str .. padding .. "│ " .. entry_display_name(entry)
+      local cat = short_category(entry.category)
+      local cat_col = 10
+      if #cat > cat_col - 1 then
+        cat = cat:sub(1, cat_col - 1)
+      end
+      local cat_pad = string.rep(" ", math.max(1, cat_col - #cat))
+      local display = "  " .. keys_str .. padding .. cat .. cat_pad .. "│ " .. entry_display_name(entry)
       table.insert(lines, display)
       table.insert(state.current_results, { type = "entry", entry = entry })
     end
@@ -145,13 +170,18 @@ local function on_select()
       end
     end)
   elseif item.type == "entry" then
-    history.add(vim.fn.trim(vim.api.nvim_buf_get_lines(state.input_buf, 0, 1, false)[1] or ""))
+    local query = get_current_query()
+    history.add(query)
+    state.last_query = query
+    state.last_selected_idx = state.selected_idx
     close()
     M.open_detail(item.entry)
   end
 end
 
-function M.open()
+function M.open(opts)
+  opts = opts or {}
+  if vim.fn.getcmdwintype() ~= "" then return end
   close()
 
   local width = 70
@@ -232,6 +262,23 @@ function M.open()
     end,
   })
 
+  -- Restore previous query when returning from detail
+  if opts.restore then
+    local q = state.last_query or ""
+    local idx = state.last_selected_idx or 1
+    if q ~= "" then
+      vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { q })
+      render_results(q)
+      state.selected_idx = math.min(idx, #state.current_results)
+      M._highlight_selected()
+      vim.schedule(function()
+        if state.input_win and vim.api.nvim_win_is_valid(state.input_win) then
+          vim.api.nvim_win_set_cursor(state.input_win, { 1, #q })
+        end
+      end)
+    end
+  end
+
   vim.cmd("startinsert")
 end
 
@@ -279,10 +326,26 @@ local function install_plugin(entry, win)
       }, "\n")
       vim.fn.writefile(vim.split(starter, "\n"), init_path)
     end
-    vim.notify(
-      "lazy.nvim installed!\n" .. init_path .. "\n\nRestart Neovim to activate.",
-      vim.log.levels.INFO
-    )
+    -- Actually clone lazy.nvim right now if not already present
+    local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+    if not vim.uv.fs_stat(lazypath) then
+      vim.notify("Downloading lazy.nvim...", vim.log.levels.INFO)
+      local result = vim.fn.system({
+        "git", "clone", "--filter=blob:none",
+        "https://github.com/folke/lazy.nvim.git",
+        "--branch=stable", lazypath,
+      })
+      if vim.v.shell_error ~= 0 then
+        vim.notify("Failed to clone lazy.nvim:\n" .. result, vim.log.levels.ERROR)
+        return
+      end
+      vim.notify(
+        "lazy.nvim installed!\n" .. init_path .. "\n\nRestart Neovim to activate.",
+        vim.log.levels.INFO
+      )
+    else
+      vim.notify("lazy.nvim already downloaded. Config written to:\n" .. init_path, vim.log.levels.INFO)
+    end
     if win and vim.api.nvim_win_is_valid(win) then
       vim.api.nvim_win_close(win, true)
     end
@@ -315,7 +378,16 @@ local function install_plugin(entry, win)
   vim.fn.writefile(vim.split(install_code, "\n"), filepath)
 
   if has_lazy then
-    vim.notify("Installed! " .. filepath .. "\nRestart Neovim to activate.", vim.log.levels.INFO)
+    -- Try to run :Lazy sync automatically if lazy.nvim is loaded
+    local lazy_loaded = pcall(require, "lazy")
+    if lazy_loaded then
+      vim.notify("Installed! " .. filepath .. "\nRunning :Lazy sync ...", vim.log.levels.INFO)
+      vim.schedule(function()
+        vim.cmd("Lazy sync")
+      end)
+    else
+      vim.notify("Installed! " .. filepath .. "\nRestart Neovim, then run :Lazy sync", vim.log.levels.INFO)
+    end
   else
     vim.notify(
       "Installed! " .. filepath
@@ -412,6 +484,7 @@ function M.open_detail(entry)
     vim.fn.setreg("+", entry.keys)
     vim.notify("Copied: " .. entry.keys, vim.log.levels.INFO)
     vim.api.nvim_win_close(win, true)
+    M.open({ restore = true })
   end, opts)
 
   if entry.install then
@@ -419,6 +492,7 @@ function M.open_detail(entry)
       vim.fn.setreg("+", entry.install)
       vim.notify("Copied install config!", vim.log.levels.INFO)
       vim.api.nvim_win_close(win, true)
+      M.open({ restore = true })
     end, opts)
 
     vim.keymap.set("n", "I", function()
@@ -428,7 +502,7 @@ function M.open_detail(entry)
 
   vim.keymap.set("n", "?", function()
     vim.api.nvim_win_close(win, true)
-    M.open()
+    M.open({ restore = true })
   end, opts)
 
   vim.keymap.set("n", "<Tab>", function()
