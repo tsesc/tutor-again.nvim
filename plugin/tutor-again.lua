@@ -1,0 +1,1 @@
+-- Thin shim — actual loading deferred to setup()
