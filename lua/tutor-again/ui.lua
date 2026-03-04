@@ -229,7 +229,7 @@ function M.open()
 end
 
 function M.open_detail(entry)
-  local width = 55
+  local width = 65
   local lines = {}
   local is_zh = get_lang() == "zh-TW"
 
@@ -248,6 +248,15 @@ function M.open_detail(entry)
     table.insert(lines, "  " .. entry.name_zh)
     table.insert(lines, "")
   end
+  if entry.install then
+    table.insert(lines, "  Install (lazy.nvim):")
+    table.insert(lines, "  " .. string.rep("─", 30))
+    for install_line in entry.install:gmatch("[^\n]+") do
+      table.insert(lines, "  " .. install_line)
+    end
+    table.insert(lines, "  " .. string.rep("─", 30))
+    table.insert(lines, "")
+  end
   if entry.related and #entry.related > 0 then
     table.insert(lines, "  Related:")
     for _, r in ipairs(entry.related) do
@@ -257,9 +266,14 @@ function M.open_detail(entry)
   table.insert(lines, "")
   table.insert(lines, "  Category: " .. (entry.category or ""))
   table.insert(lines, "")
-  table.insert(lines, "  [q] close  [y] copy keys  [?] back  [Tab] lang")
+  local hint = "  [q] close  [y] copy keys  [?] back  [Tab] lang"
+  if entry.install then
+    hint = "  [q] close  [y] copy keys  [Y] copy install  [?] back  [Tab] lang"
+  end
+  table.insert(lines, hint)
 
-  local height = #lines
+  local max_height = vim.o.lines - 6
+  local height = math.min(#lines, max_height)
   local row = math.floor((vim.o.lines - height) / 2)
   local col = math.floor((vim.o.columns - width) / 2)
 
@@ -280,6 +294,8 @@ function M.open_detail(entry)
     style = "minimal",
   })
 
+  vim.cmd("stopinsert")
+
   local opts = { buffer = buf, nowait = true, silent = true }
 
   vim.keymap.set("n", "q", function()
@@ -295,6 +311,14 @@ function M.open_detail(entry)
     vim.notify("Copied: " .. entry.keys, vim.log.levels.INFO)
     vim.api.nvim_win_close(win, true)
   end, opts)
+
+  if entry.install then
+    vim.keymap.set("n", "Y", function()
+      vim.fn.setreg("+", entry.install)
+      vim.notify("Copied install config!", vim.log.levels.INFO)
+      vim.api.nvim_win_close(win, true)
+    end, opts)
+  end
 
   vim.keymap.set("n", "?", function()
     vim.api.nvim_win_close(win, true)
