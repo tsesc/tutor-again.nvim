@@ -235,6 +235,101 @@ function M.open()
   vim.cmd("startinsert")
 end
 
+local function install_plugin(entry, win)
+  if not entry.install then return end
+
+  local config_dir = vim.fn.stdpath("config")
+  local init_path = config_dir .. "/init.lua"
+  local plugins_dir = config_dir .. "/lua/plugins"
+
+  -- Special case: lazy.nvim bootstrap goes into init.lua
+  if entry.keys == "lazy.nvim" then
+    vim.fn.mkdir(config_dir, "p")
+    vim.fn.mkdir(plugins_dir, "p")
+
+    if vim.fn.filereadable(init_path) == 1 then
+      local content = table.concat(vim.fn.readfile(init_path), "\n")
+      if content:find("lazy%.nvim") then
+        vim.notify("lazy.nvim already configured in init.lua", vim.log.levels.WARN)
+        return
+      end
+      -- Append bootstrap to existing init.lua
+      local new_content = content .. "\n\n" .. entry.install .. "\n"
+      vim.fn.writefile(vim.split(new_content, "\n"), init_path)
+    else
+      -- Create init.lua with basic settings + bootstrap
+      local starter = table.concat({
+        "-- Basic settings",
+        "vim.opt.number = true",
+        "vim.opt.relativenumber = true",
+        "vim.opt.termguicolors = true",
+        "vim.opt.clipboard = 'unnamedplus'",
+        "vim.opt.tabstop = 2",
+        "vim.opt.shiftwidth = 2",
+        "vim.opt.expandtab = true",
+        "vim.opt.signcolumn = 'yes'",
+        "vim.opt.cursorline = true",
+        "vim.opt.scrolloff = 8",
+        "vim.opt.ignorecase = true",
+        "vim.opt.smartcase = true",
+        "vim.opt.undofile = true",
+        "",
+        entry.install,
+        "",
+      }, "\n")
+      vim.fn.writefile(vim.split(starter, "\n"), init_path)
+    end
+    vim.notify(
+      "lazy.nvim installed!\n" .. init_path .. "\n\nRestart Neovim to activate.",
+      vim.log.levels.INFO
+    )
+    if win and vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+    return
+  end
+
+  -- Normal plugin: write to lua/plugins/{name}.lua
+  vim.fn.mkdir(plugins_dir, "p")
+
+  local name = entry.keys:gsub("%.nvim$", ""):gsub("[^%w_-]", "_"):lower()
+  local filepath = plugins_dir .. "/" .. name .. ".lua"
+
+  if vim.fn.filereadable(filepath) == 1 then
+    vim.notify("Already installed: " .. filepath, vim.log.levels.WARN)
+    return
+  end
+
+  -- Check if lazy.nvim is set up
+  local has_lazy = false
+  if vim.fn.filereadable(init_path) == 1 then
+    local content = table.concat(vim.fn.readfile(init_path), "\n")
+    has_lazy = content:find("lazy%.nvim") ~= nil
+  end
+
+  local install_code = entry.install
+  if install_code:match("^%s*{") then
+    install_code = "return " .. install_code
+  end
+
+  vim.fn.writefile(vim.split(install_code, "\n"), filepath)
+
+  if has_lazy then
+    vim.notify("Installed! " .. filepath .. "\nRestart Neovim to activate.", vim.log.levels.INFO)
+  else
+    vim.notify(
+      "Installed! " .. filepath
+        .. "\n\nlazy.nvim not found in init.lua."
+        .. "\nInstall lazy.nvim first (search 'lazy.nvim' and press I).",
+      vim.log.levels.WARN
+    )
+  end
+
+  if win and vim.api.nvim_win_is_valid(win) then
+    vim.api.nvim_win_close(win, true)
+  end
+end
+
 function M.open_detail(entry)
   local width = 65
   local lines = {}
@@ -275,7 +370,7 @@ function M.open_detail(entry)
   table.insert(lines, "")
   local hint = "  [q] close  [y] copy keys  [?] back  [Tab] lang"
   if entry.install then
-    hint = "  [q] close  [y] copy keys  [Y] copy install  [?] back  [Tab] lang"
+    hint = "  [I] install  [Y] copy config  [y] copy keys  [?] back  [Tab] lang"
   end
   table.insert(lines, hint)
 
@@ -324,6 +419,10 @@ function M.open_detail(entry)
       vim.fn.setreg("+", entry.install)
       vim.notify("Copied install config!", vim.log.levels.INFO)
       vim.api.nvim_win_close(win, true)
+    end, opts)
+
+    vim.keymap.set("n", "I", function()
+      install_plugin(entry, win)
     end, opts)
   end
 
