@@ -330,6 +330,10 @@ No build step needed — Neovim plugin managers clone the repo and add it to `ru
 - Use [GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github) for versioning
 - Add a `LICENSE` file (MIT recommended)
 
+## Contributing
+
+This entire plugin was built with [Claude Code](https://claude.ai/claude-code) — I have zero Lua experience! If you find bugs, have suggestions, or want to contribute, please [open an issue](https://github.com/jacktse/tutor-again.nvim/issues). All feedback is welcome!
+
 ## License
 
 MIT
