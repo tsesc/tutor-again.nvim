@@ -1,0 +1,16 @@
+# Claude Code
+.claude/
+
+# Environment / secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Neovim
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
