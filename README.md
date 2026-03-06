@@ -4,6 +4,60 @@ Interactive Vim/Neovim learning plugin. Fuzzy search 276 commands instantly, or 
 
 Supports bilingual display (English / 繁體中文) with one-key toggle.
 
+## Screenshots
+
+### Fuzzy Search — instantly filter 276 commands
+
+![Search Mode](docs/search-mode.png)
+
+Type any keyword and results appear instantly. Each entry shows key sequence, category, and a bilingual description.
+
+### AI Tutor — ask Vim questions in natural language
+
+Press `<C-a>` to switch to AI mode. Type a question, press `<CR>`, and get a streaming AI response.
+
+**Asking a question — "思考中..." loading state:**
+
+![AI Asking](docs/ai-asking.png)
+
+**Streaming response (中文) — multi-line editing tutorial:**
+
+![AI Mode](docs/ai-mode.png)
+
+**Streaming response (中文) — macro usage guide:**
+
+![AI Response ZH](docs/ai-response-zh.png)
+
+**Streaming response (English) — multi-file replace:**
+
+![AI Response EN](docs/ai-response-en.png)
+
+AI responses are formatted with numbered steps, code examples highlighted in color, and scrollable via `<Up>`/`<Down>`. Press `<C-y>` to copy the full response to clipboard.
+
+### Detail View — mnemonic, description, related commands
+
+![Detail View](docs/detail-view.png)
+
+Press `<CR>` on any result to see a full detail card: mnemonic hint, English/中文 descriptions, related commands, and category.
+
+### Plugin Detail — one-key install with lazy.nvim
+
+![Plugin Detail](docs/plugin-detail.png)
+
+Plugin entries include install config. Press `I` to write the config file and trigger `:Lazy sync` automatically.
+
+### Bilingual Toggle — `<Tab>` to switch language
+
+| 中文 mode | English mode |
+|---|---|
+| ![中文](docs/search-mode.png) | ![English](docs/search-mode-en.png) |
+
+### Search History — persistent across sessions
+
+![History](docs/history.png)
+
+When the input is empty, previous searches are shown with relative timestamps. Select a history entry to re-run it.
+
 ## Features
 
 - **Fuzzy Search** — 276 Vim/Neovim commands across 9 categories (movement, operators, text objects, insert, visual, search, files, settings, plugins)
@@ -152,6 +206,48 @@ ai = {
 | **files** | `:w` `:q` `:e` `:bn` `:bp` `Ctrl+w` splits |
 | **settings** | `set number` `set relativenumber` `set tabstop` ... |
 | **plugins** | telescope.nvim, nvim-treesitter, nvim-lspconfig, lazy.nvim ... |
+
+## Usage Patterns
+
+### Pattern 1: Quick Command Lookup
+
+The most common workflow — you know roughly what you want but can't remember the exact key.
+
+```
+<leader>?  →  type "delete"  →  see dd, D, x, dw, dap...  →  <CR> for details  →  y to copy
+```
+
+### Pattern 2: Learning by Category
+
+Browse commands by typing a category name to explore related commands you might not know.
+
+```
+<leader>?  →  type "text obj"  →  discover iw, aw, i(, a{, it...  →  <CR> to learn each one
+```
+
+### Pattern 3: AI-Assisted Learning
+
+When you have a "how do I..." question that doesn't map to a single command.
+
+```
+<leader>?  →  <C-a> (switch to AI)  →  "如何在多行同時編輯？"  →  <CR>  →  read streaming answer
+```
+
+### Pattern 4: Plugin Discovery & Install
+
+Find and install popular Neovim plugins without leaving your editor.
+
+```
+<leader>?  →  type "telescope"  →  <CR> for detail  →  I to one-key install  →  restart nvim
+```
+
+### Pattern 5: Bilingual Reference
+
+Share the same tool between English and Chinese speakers. Toggle with a single key.
+
+```
+<leader>?  →  type "word"  →  see results in 中文  →  <Tab> to switch to English  →  <Tab> back
+```
 
 ## Development
 
