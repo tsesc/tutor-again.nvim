@@ -242,12 +242,16 @@ function M._request(model, body_table, api_key, base_url, callbacks)
     end
   end
 
+  -- Write auth header to temp file to avoid exposing API key in process args
+  local header_file = vim.fn.tempname()
+  vim.fn.writefile({ 'header = "Authorization: Bearer ' .. api_key .. '"' }, header_file)
+
   local job_id = vim.fn.jobstart({
     "curl", "-s", "-N",
     "-X", "POST",
     base_url .. "/chat/completions",
     "-H", "Content-Type: application/json",
-    "-H", "Authorization: Bearer " .. api_key,
+    "--config", header_file,
     "-d", body,
   }, {
     stdout_buffered = false,
@@ -268,6 +272,9 @@ function M._request(model, body_table, api_key, base_url, callbacks)
     end,
     on_stderr = function() end,
     on_exit = function(_, exit_code, _)
+      -- Clean up temp header file
+      pcall(vim.fn.delete, header_file)
+
       if partial_line ~= "" then
         table.insert(raw_output, partial_line)
         process_line(partial_line)
@@ -312,11 +319,23 @@ function M._request(model, body_table, api_key, base_url, callbacks)
   return job_id
 end
 
+M._max_query_length = 500
+
 function M.ask(question, lang, opts)
   opts = opts or {}
   local on_chunk = opts.on_chunk
   local on_done = opts.on_done
   local on_error = opts.on_error
+
+  if #question > M._max_query_length then
+    if on_error then
+      local msg = lang == "zh-TW"
+        and ("問題過長（上限 " .. M._max_query_length .. " 字元）")
+        or ("Query too long (max " .. M._max_query_length .. " characters)")
+      on_error(msg)
+    end
+    return nil
+  end
 
   local api_key = M.get_api_key()
   if not api_key or api_key == "" then

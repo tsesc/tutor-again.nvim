@@ -20,7 +20,9 @@ function M._get_path()
 
   -- Migration: move old data path to new state path
   if vim.fn.filereadable(M._path) == 0 then
-    local old_path = M._path:gsub(vim.fn.stdpath("state"), vim.fn.stdpath("data"))
+    local state_dir = vim.fn.stdpath("state")
+    local escaped = state_dir:gsub("([%(%)%.%%%+%-%*%?%[%^%$])", "%%%1")
+    local old_path = M._path:gsub(escaped, vim.fn.stdpath("data"))
     if old_path ~= M._path and vim.fn.filereadable(old_path) == 1 then
       local dir = vim.fn.fnamemodify(M._path, ":h")
       vim.fn.mkdir(dir, "p")
@@ -60,7 +62,12 @@ function M._write_to_disk()
   vim.fn.mkdir(dir, "p")
   local ok, encoded = pcall(vim.fn.json_encode, M._entries)
   if ok then
-    pcall(vim.fn.writefile, { encoded }, path)
+    -- Atomic write: write to temp file then rename to reduce race window
+    local tmp = path .. ".tmp." .. vim.fn.getpid()
+    local wok = pcall(vim.fn.writefile, { encoded }, tmp)
+    if wok then
+      vim.fn.rename(tmp, path)
+    end
   end
 end
 

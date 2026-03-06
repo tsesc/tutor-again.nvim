@@ -258,6 +258,14 @@ local function show_ai_placeholder()
   set_results_lines({ placeholder })
 end
 
+local function update_results_footer()
+  if not state.results_win or not vim.api.nvim_win_is_valid(state.results_win) then return end
+  local footer = state.mode == "ai"
+    and (get_lang() == "zh-TW" and " AI 生成，僅供參考 " or " AI-generated, verify before use ")
+    or (get_lang() == "zh-TW" and " Up/Down=捲動 " or " Up/Down=scroll ")
+  vim.api.nvim_win_set_config(state.results_win, { footer = footer, footer_pos = "center" })
+end
+
 local function toggle_mode()
   if state.mode == "search" then
     state.mode = "ai"
@@ -267,6 +275,7 @@ local function toggle_mode()
     render_results(get_current_query())
   end
   update_input_title()
+  update_results_footer()
   -- Clear input when switching modes
   if state.input_buf and vim.api.nvim_buf_is_valid(state.input_buf) then
     vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "" })
@@ -367,7 +376,9 @@ function M.open(opts)
     width = width,
     height = total_height - 3,
     border = "rounded",
-    footer = get_lang() == "zh-TW" and " Up/Down=捲動 " or " Up/Down=scroll ",
+    footer = state.mode == "ai"
+      and (get_lang() == "zh-TW" and " AI 生成，僅供參考 " or " AI-generated, verify before use ")
+      or (get_lang() == "zh-TW" and " Up/Down=捲動 " or " Up/Down=scroll "),
     footer_pos = "center",
     style = "minimal",
   })
@@ -494,6 +505,13 @@ end
 local function install_plugin(entry, win)
   if not entry.install then return end
 
+  local is_zh = get_lang() == "zh-TW"
+  local confirm_msg = is_zh
+    and string.format("確定要安裝 %s 嗎？這會寫入你的 Neovim 設定檔。", entry.keys)
+    or string.format("Install %s? This will write to your Neovim config.", entry.keys)
+  local choice = vim.fn.confirm(confirm_msg, is_zh and "&確定\n&取消" or "&Yes\n&No", 2)
+  if choice ~= 1 then return end
+
   local config_dir = vim.fn.stdpath("config")
   local init_path = config_dir .. "/init.lua"
   local plugins_dir = config_dir .. "/lua/plugins"
@@ -503,7 +521,6 @@ local function install_plugin(entry, win)
     vim.fn.mkdir(config_dir, "p")
     vim.fn.mkdir(plugins_dir, "p")
 
-    local is_zh = get_lang() == "zh-TW"
     if vim.fn.filereadable(init_path) == 1 then
       local content = table.concat(vim.fn.readfile(init_path), "\n")
       if content:find("lazy%.nvim") then
@@ -577,7 +594,6 @@ local function install_plugin(entry, win)
   local name = entry.keys:gsub("%.nvim$", ""):gsub("[^%w_-]", "_"):lower()
   local filepath = plugins_dir .. "/" .. name .. ".lua"
 
-  local is_zh = get_lang() == "zh-TW"
   if vim.fn.filereadable(filepath) == 1 then
     local msg = is_zh and ("已安裝: " .. filepath) or ("Already installed: " .. filepath)
     vim.notify(msg, vim.log.levels.WARN)
