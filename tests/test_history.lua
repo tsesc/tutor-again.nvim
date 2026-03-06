@@ -50,4 +50,30 @@ T["history"]["deduplicates"] = function()
   eq(entries[1].query, "same query") -- moved to top
 end
 
+T["format_time"] = new_set()
+
+T["format_time"]["english format"] = function()
+  local history = require("tutor-again.history")
+  local now = os.time()
+  assert(history.format_time(now - 30, "en"):find("s ago"), "should show seconds ago")
+  assert(history.format_time(now - 120, "en"):find("m ago"), "should show minutes ago")
+  assert(history.format_time(now - 7200, "en"):find("h ago"), "should show hours ago")
+  assert(history.format_time(now - 172800, "en"):find("d ago"), "should show days ago")
+end
+
+T["format_time"]["zh-TW format"] = function()
+  local history = require("tutor-again.history")
+  local now = os.time()
+  assert(history.format_time(now - 30, "zh-TW"):find("秒前"), "should show 秒前")
+  assert(history.format_time(now - 120, "zh-TW"):find("分鐘前"), "should show 分鐘前")
+  assert(history.format_time(now - 7200, "zh-TW"):find("小時前"), "should show 小時前")
+  assert(history.format_time(now - 172800, "zh-TW"):find("天前"), "should show 天前")
+end
+
+T["format_time"]["defaults to english without lang"] = function()
+  local history = require("tutor-again.history")
+  local now = os.time()
+  assert(history.format_time(now - 30):find("s ago"), "should default to English")
+end
+
 return T

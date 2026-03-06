@@ -86,12 +86,13 @@ function M.get_all()
   return M._entries
 end
 
-function M.format_time(timestamp)
+function M.format_time(timestamp, lang)
   local diff = os.time() - timestamp
-  if diff < 60 then return diff .. "s ago" end
-  if diff < 3600 then return math.floor(diff / 60) .. "m ago" end
-  if diff < 86400 then return math.floor(diff / 3600) .. "h ago" end
-  return math.floor(diff / 86400) .. "d ago"
+  local is_zh = lang == "zh-TW"
+  if diff < 60 then return diff .. (is_zh and "秒前" or "s ago") end
+  if diff < 3600 then return math.floor(diff / 60) .. (is_zh and "分鐘前" or "m ago") end
+  if diff < 86400 then return math.floor(diff / 3600) .. (is_zh and "小時前" or "h ago") end
+  return math.floor(diff / 86400) .. (is_zh and "天前" or "d ago")
 end
 
 return M

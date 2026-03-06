@@ -9,6 +9,9 @@ test-unit:
 	nvim --headless -u scripts/minimal_init.lua \
 		-c "lua MiniTest.run_file('tests/test_search.lua')" \
 		-c "lua MiniTest.run_file('tests/test_history.lua')" \
+		-c "lua MiniTest.run_file('tests/test_ai.lua')" \
+		-c "lua MiniTest.run_file('tests/test_config.lua')" \
+		-c "lua MiniTest.run_file('tests/test_db.lua')" \
 		-c "qall!" 2>&1
 
 test-integration:

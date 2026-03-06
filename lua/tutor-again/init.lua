@@ -11,13 +11,15 @@ function M.setup(opts)
       require("tutor-again.ui").open_history()
     elseif arg == "categories" then
       require("tutor-again.ui").open_categories()
+    elseif arg == "ai" then
+      require("tutor-again.ui").open({ mode = "ai" })
     else
       require("tutor-again.ui").open()
     end
   end, {
     nargs = "?",
     complete = function()
-      return { "history", "categories" }
+      return { "history", "categories", "ai" }
     end,
     desc = "Open tutor-again",
   })

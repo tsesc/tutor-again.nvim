@@ -14,6 +14,9 @@ local state = {
   lang = nil, -- nil means use config default
   last_query = nil, -- preserve query when returning from detail
   last_selected_idx = nil,
+  mode = "search", -- "search" or "ai"
+  ai_job_id = nil,
+  ai_response = "",
 }
 
 local function get_lang()
@@ -44,10 +47,29 @@ local function lang_label()
   return "EN"
 end
 
+local function mode_label()
+  if state.mode == "ai" then return "AI" end
+  return get_lang() == "zh-TW" and "搜尋" or "Search"
+end
+
 local function short_category(cat)
   if not cat or cat == "" then return "" end
   -- Take top-level category only: "operators.delete" -> "operators"
   local top = cat:match("^([^.]+)")
+  if get_lang() == "zh-TW" then
+    local map_zh = {
+      movement = "移動",
+      operators = "編輯",
+      text_objects = "文字",
+      insert = "插入",
+      visual = "選取",
+      search = "搜尋",
+      files = "檔案",
+      settings = "設定",
+      plugins = "插件",
+    }
+    return map_zh[top] or top
+  end
   local map = {
     movement = "move",
     operators = "edit",
@@ -63,6 +85,10 @@ local function short_category(cat)
 end
 
 local function close()
+  if state.ai_job_id then
+    require("tutor-again.ai").cancel(state.ai_job_id)
+    state.ai_job_id = nil
+  end
   if state.input_win and vim.api.nvim_win_is_valid(state.input_win) then
     vim.api.nvim_win_close(state.input_win, true)
   end
@@ -89,12 +115,16 @@ local function render_results(query)
     state.current_results = {}
     for i, entry in ipairs(entries) do
       if i > 20 then break end
-      local time_str = history.format_time(entry.time)
+      local time_str = history.format_time(entry.time, get_lang())
       table.insert(lines, string.format("  %s%s%s", entry.query, string.rep(" ", math.max(1, 40 - #entry.query)), time_str))
       table.insert(state.current_results, { type = "history", query = entry.query })
     end
     if #lines == 0 then
-      table.insert(lines, "  No history yet. Type to search!")
+      if get_lang() == "zh-TW" then
+        table.insert(lines, "  尚無歷史紀錄，輸入關鍵字搜尋！")
+      else
+        table.insert(lines, "  No history yet. Type to search!")
+      end
     end
   else
     -- Search database
@@ -120,7 +150,11 @@ local function render_results(query)
       table.insert(state.current_results, { type = "entry", entry = entry })
     end
     if #lines == 0 then
-      table.insert(lines, "  No results found.")
+      if get_lang() == "zh-TW" then
+        table.insert(lines, "  找不到結果")
+      else
+        table.insert(lines, "  No results found.")
+      end
     end
   end
 
@@ -146,11 +180,39 @@ function M._highlight_selected()
   end
 end
 
+local function get_mode_key_label()
+  local config = require("tutor-again").config
+  local key = config.ai and config.ai.mode_key or "<C-a>"
+  -- Convert <C-a> to Ctrl+a for display
+  local label = key:gsub("<C%-(%w)>", "C-%1")
+  return label
+end
+
+local function build_hints()
+  local mode_key = get_mode_key_label()
+  local is_zh = get_lang() == "zh-TW"
+  if state.mode == "ai" then
+    if is_zh then
+      return string.format(" %s=搜尋 Tab=語言 C-y=複製 ", mode_key)
+    else
+      return string.format(" %s=search Tab=lang C-y=copy ", mode_key)
+    end
+  else
+    if is_zh then
+      return string.format(" %s=AI Tab=語言 ", mode_key)
+    else
+      return string.format(" %s=AI Tab=lang ", mode_key)
+    end
+  end
+end
+
 local function update_input_title()
   if not state.input_win or not vim.api.nvim_win_is_valid(state.input_win) then return end
   vim.api.nvim_win_set_config(state.input_win, {
-    title = string.format(" tutor-again [%s] <Tab>=lang ", lang_label()),
+    title = string.format(" tutor-again %s [%s] ", mode_label(), lang_label()),
     title_pos = "center",
+    footer = build_hints(),
+    footer_pos = "center",
   })
 end
 
@@ -179,10 +241,96 @@ local function on_select()
   end
 end
 
+local function set_results_lines(lines)
+  if not state.results_buf or not vim.api.nvim_buf_is_valid(state.results_buf) then return end
+  vim.api.nvim_set_option_value("modifiable", true, { buf = state.results_buf })
+  vim.api.nvim_buf_set_lines(state.results_buf, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = state.results_buf })
+end
+
+local function show_ai_placeholder()
+  local placeholder
+  if get_lang() == "zh-TW" then
+    placeholder = "  輸入 Vim 相關問題，按 Enter 送出"
+  else
+    placeholder = "  Type a Vim question, press Enter to ask"
+  end
+  set_results_lines({ placeholder })
+end
+
+local function toggle_mode()
+  if state.mode == "search" then
+    state.mode = "ai"
+    show_ai_placeholder()
+  else
+    state.mode = "search"
+    render_results(get_current_query())
+  end
+  update_input_title()
+  -- Clear input when switching modes
+  if state.input_buf and vim.api.nvim_buf_is_valid(state.input_buf) then
+    vim.api.nvim_buf_set_lines(state.input_buf, 0, -1, false, { "" })
+  end
+end
+
+local function send_ai_query()
+  local ai = require("tutor-again.ai")
+  local query = get_current_query()
+  if query == "" then return end
+
+  -- Cancel existing job
+  if state.ai_job_id then
+    ai.cancel(state.ai_job_id)
+    state.ai_job_id = nil
+  end
+
+  state.ai_response = ""
+  local thinking
+  if get_lang() == "zh-TW" then
+    thinking = "  思考中..."
+  else
+    thinking = "  Thinking..."
+  end
+  set_results_lines({ thinking })
+
+  state.ai_job_id = ai.ask(query, get_lang(), {
+    on_chunk = function(content)
+      state.ai_response = state.ai_response .. content
+      local wrapped = ai.wrap_text(state.ai_response, 64)
+      -- Add 2-space indent
+      local display = {}
+      for _, line in ipairs(wrapped) do
+        table.insert(display, "  " .. line)
+      end
+      set_results_lines(display)
+      -- Scroll to bottom
+      if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
+        local count = vim.api.nvim_buf_line_count(state.results_buf)
+        pcall(vim.api.nvim_win_set_cursor, state.results_win, { count, 0 })
+      end
+    end,
+    on_done = function()
+      state.ai_job_id = nil
+    end,
+    on_error = function(msg)
+      state.ai_job_id = nil
+      local prefix = get_lang() == "zh-TW" and "  錯誤: " or "  Error: "
+      set_results_lines({ prefix .. msg })
+    end,
+  })
+end
+
 function M.open(opts)
   opts = opts or {}
   if vim.fn.getcmdwintype() ~= "" then return end
   close()
+
+  -- Set initial mode if specified
+  if opts.mode == "ai" then
+    state.mode = "ai"
+  elseif not opts.restore then
+    state.mode = "search"
+  end
 
   local width = 70
   local total_height = 18
@@ -200,8 +348,10 @@ function M.open(opts)
     width = width,
     height = 1,
     border = "rounded",
-    title = string.format(" tutor-again [%s] <Tab>=lang ", lang_label()),
+    title = string.format(" tutor-again %s [%s] ", mode_label(), lang_label()),
     title_pos = "center",
+    footer = build_hints(),
+    footer_pos = "center",
     style = "minimal",
   })
 
@@ -217,53 +367,112 @@ function M.open(opts)
     width = width,
     height = total_height - 3,
     border = "rounded",
+    footer = get_lang() == "zh-TW" and " Up/Down=捲動 " or " Up/Down=scroll ",
+    footer_pos = "center",
     style = "minimal",
   })
 
   vim.api.nvim_set_option_value("cursorline", false, { win = state.results_win })
 
-  -- Initial render (show history)
-  render_results("")
+  -- Initial render based on mode
+  if state.mode == "ai" then
+    show_ai_placeholder()
+  else
+    render_results("")
+  end
 
   -- Keymaps on input buffer
-  local opts = { buffer = state.input_buf, nowait = true, silent = true }
+  local kopts = { buffer = state.input_buf, nowait = true, silent = true }
 
-  vim.keymap.set({ "i", "n" }, "<Esc>", close, opts)
-  vim.keymap.set({ "i", "n" }, "<C-c>", close, opts)
+  vim.keymap.set({ "i", "n" }, "<Esc>", close, kopts)
+  vim.keymap.set({ "i", "n" }, "<C-c>", close, kopts)
 
   vim.keymap.set({ "i", "n" }, "<Down>", function()
-    local line_count = vim.api.nvim_buf_line_count(state.results_buf)
-    if state.selected_idx < line_count then
-      state.selected_idx = state.selected_idx + 1
-      M._highlight_selected()
+    if state.mode == "ai" then
+      -- Scroll results down in AI mode
+      if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
+        local count = vim.api.nvim_buf_line_count(state.results_buf)
+        local cursor = vim.api.nvim_win_get_cursor(state.results_win)
+        if cursor[1] < count then
+          pcall(vim.api.nvim_win_set_cursor, state.results_win, { cursor[1] + 1, 0 })
+        end
+      end
+    else
+      local line_count = vim.api.nvim_buf_line_count(state.results_buf)
+      if state.selected_idx < line_count then
+        state.selected_idx = state.selected_idx + 1
+        M._highlight_selected()
+      end
     end
-  end, opts)
+  end, kopts)
 
   vim.keymap.set({ "i", "n" }, "<Up>", function()
-    if state.selected_idx > 1 then
-      state.selected_idx = state.selected_idx - 1
-      M._highlight_selected()
+    if state.mode == "ai" then
+      if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
+        local cursor = vim.api.nvim_win_get_cursor(state.results_win)
+        if cursor[1] > 1 then
+          pcall(vim.api.nvim_win_set_cursor, state.results_win, { cursor[1] - 1, 0 })
+        end
+      end
+    else
+      if state.selected_idx > 1 then
+        state.selected_idx = state.selected_idx - 1
+        M._highlight_selected()
+      end
     end
-  end, opts)
+  end, kopts)
 
-  vim.keymap.set({ "i", "n" }, "<CR>", on_select, opts)
+  vim.keymap.set({ "i", "n" }, "<CR>", function()
+    if state.mode == "ai" then
+      send_ai_query()
+    else
+      on_select()
+    end
+  end, kopts)
 
   vim.keymap.set({ "i", "n" }, "<Tab>", function()
     toggle_lang()
     update_input_title()
-    render_results(get_current_query())
-  end, opts)
+    if state.mode == "search" then
+      render_results(get_current_query())
+    elseif state.ai_response == "" then
+      show_ai_placeholder()
+    end
+  end, kopts)
 
-  -- Live search on text change
+  -- Copy AI response or error to clipboard
+  vim.keymap.set({ "i", "n" }, "<C-y>", function()
+    if state.mode == "ai" and state.results_buf and vim.api.nvim_buf_is_valid(state.results_buf) then
+      local lines = vim.api.nvim_buf_get_lines(state.results_buf, 0, -1, false)
+      -- Strip leading 2-space indent
+      local cleaned = {}
+      for _, line in ipairs(lines) do
+        table.insert(cleaned, (line:gsub("^  ", "")))
+      end
+      local text = table.concat(cleaned, "\n")
+      vim.fn.setreg("+", text)
+      local msg = get_lang() == "zh-TW" and "已複製到剪貼簿" or "Copied to clipboard"
+      vim.notify(msg, vim.log.levels.INFO)
+    end
+  end, kopts)
+
+  -- Mode toggle
+  local config = require("tutor-again").config
+  local mode_key = config.ai and config.ai.mode_key or "<C-a>"
+  vim.keymap.set({ "i", "n" }, mode_key, toggle_mode, kopts)
+
+  -- Live search on text change (only in search mode)
   vim.api.nvim_create_autocmd("TextChangedI", {
     buffer = state.input_buf,
     callback = function()
-      render_results(get_current_query())
+      if state.mode == "search" then
+        render_results(get_current_query())
+      end
     end,
   })
 
   -- Restore previous query when returning from detail
-  if opts.restore then
+  if opts.restore and state.mode == "search" then
     local q = state.last_query or ""
     local idx = state.last_selected_idx or 1
     if q ~= "" then
@@ -294,10 +503,12 @@ local function install_plugin(entry, win)
     vim.fn.mkdir(config_dir, "p")
     vim.fn.mkdir(plugins_dir, "p")
 
+    local is_zh = get_lang() == "zh-TW"
     if vim.fn.filereadable(init_path) == 1 then
       local content = table.concat(vim.fn.readfile(init_path), "\n")
       if content:find("lazy%.nvim") then
-        vim.notify("lazy.nvim already configured in init.lua", vim.log.levels.WARN)
+        local msg = is_zh and "lazy.nvim 已在 init.lua 中設定" or "lazy.nvim already configured in init.lua"
+        vim.notify(msg, vim.log.levels.WARN)
         return
       end
       -- Append bootstrap to existing init.lua
@@ -329,22 +540,30 @@ local function install_plugin(entry, win)
     -- Actually clone lazy.nvim right now if not already present
     local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
     if not vim.uv.fs_stat(lazypath) then
-      vim.notify("Downloading lazy.nvim...", vim.log.levels.INFO)
+      vim.notify(is_zh and "正在下載 lazy.nvim..." or "Downloading lazy.nvim...", vim.log.levels.INFO)
       local result = vim.fn.system({
         "git", "clone", "--filter=blob:none",
         "https://github.com/folke/lazy.nvim.git",
         "--branch=stable", lazypath,
       })
       if vim.v.shell_error ~= 0 then
-        vim.notify("Failed to clone lazy.nvim:\n" .. result, vim.log.levels.ERROR)
+        local msg = is_zh and ("下載 lazy.nvim 失敗:\n" .. result) or ("Failed to clone lazy.nvim:\n" .. result)
+        vim.notify(msg, vim.log.levels.ERROR)
         return
       end
       vim.notify(
-        "lazy.nvim installed!\n" .. init_path .. "\n\nRestart Neovim to activate.",
+        is_zh
+          and ("lazy.nvim 安裝完成！\n" .. init_path .. "\n\n請重啟 Neovim 以啟用。")
+          or ("lazy.nvim installed!\n" .. init_path .. "\n\nRestart Neovim to activate."),
         vim.log.levels.INFO
       )
     else
-      vim.notify("lazy.nvim already downloaded. Config written to:\n" .. init_path, vim.log.levels.INFO)
+      vim.notify(
+        is_zh
+          and ("lazy.nvim 已下載。設定已寫入:\n" .. init_path)
+          or ("lazy.nvim already downloaded. Config written to:\n" .. init_path),
+        vim.log.levels.INFO
+      )
     end
     if win and vim.api.nvim_win_is_valid(win) then
       vim.api.nvim_win_close(win, true)
@@ -358,8 +577,10 @@ local function install_plugin(entry, win)
   local name = entry.keys:gsub("%.nvim$", ""):gsub("[^%w_-]", "_"):lower()
   local filepath = plugins_dir .. "/" .. name .. ".lua"
 
+  local is_zh = get_lang() == "zh-TW"
   if vim.fn.filereadable(filepath) == 1 then
-    vim.notify("Already installed: " .. filepath, vim.log.levels.WARN)
+    local msg = is_zh and ("已安裝: " .. filepath) or ("Already installed: " .. filepath)
+    vim.notify(msg, vim.log.levels.WARN)
     return
   end
 
@@ -378,23 +599,26 @@ local function install_plugin(entry, win)
   vim.fn.writefile(vim.split(install_code, "\n"), filepath)
 
   if has_lazy then
-    -- Try to run :Lazy sync automatically if lazy.nvim is loaded
     local lazy_loaded = pcall(require, "lazy")
     if lazy_loaded then
-      vim.notify("Installed! " .. filepath .. "\nRunning :Lazy sync ...", vim.log.levels.INFO)
+      local msg = is_zh
+        and ("安裝完成！" .. filepath .. "\n正在執行 :Lazy sync ...")
+        or ("Installed! " .. filepath .. "\nRunning :Lazy sync ...")
+      vim.notify(msg, vim.log.levels.INFO)
       vim.schedule(function()
         vim.cmd("Lazy sync")
       end)
     else
-      vim.notify("Installed! " .. filepath .. "\nRestart Neovim, then run :Lazy sync", vim.log.levels.INFO)
+      local msg = is_zh
+        and ("安裝完成！" .. filepath .. "\n請重啟 Neovim 後執行 :Lazy sync")
+        or ("Installed! " .. filepath .. "\nRestart Neovim, then run :Lazy sync")
+      vim.notify(msg, vim.log.levels.INFO)
     end
   else
-    vim.notify(
-      "Installed! " .. filepath
-        .. "\n\nlazy.nvim not found in init.lua."
-        .. "\nInstall lazy.nvim first (search 'lazy.nvim' and press I).",
-      vim.log.levels.WARN
-    )
+    local msg = is_zh
+      and ("安裝完成！" .. filepath .. "\n\n未偵測到 lazy.nvim。\n請先安裝 lazy.nvim（搜尋 'lazy.nvim' 後按 I）。")
+      or ("Installed! " .. filepath .. "\n\nlazy.nvim not found in init.lua.\nInstall lazy.nvim first (search 'lazy.nvim' and press I).")
+    vim.notify(msg, vim.log.levels.WARN)
   end
 
   if win and vim.api.nvim_win_is_valid(win) then
@@ -411,7 +635,7 @@ function M.open_detail(entry)
   table.insert(lines, string.rep("─", width - 2))
   table.insert(lines, "")
   if entry.mnemonic then
-    table.insert(lines, "  Mnemonic: " .. entry.mnemonic)
+    table.insert(lines, (is_zh and "  助記: " or "  Mnemonic: ") .. entry.mnemonic)
   end
   table.insert(lines, "")
   if entry.description then
@@ -423,7 +647,7 @@ function M.open_detail(entry)
     table.insert(lines, "")
   end
   if entry.install then
-    table.insert(lines, "  Install (lazy.nvim):")
+    table.insert(lines, is_zh and "  安裝 (lazy.nvim):" or "  Install (lazy.nvim):")
     table.insert(lines, "  " .. string.rep("─", 30))
     for install_line in entry.install:gmatch("[^\n]+") do
       table.insert(lines, "  " .. install_line)
@@ -432,17 +656,25 @@ function M.open_detail(entry)
     table.insert(lines, "")
   end
   if entry.related and #entry.related > 0 then
-    table.insert(lines, "  Related:")
+    table.insert(lines, is_zh and "  相關指令:" or "  Related:")
     for _, r in ipairs(entry.related) do
       table.insert(lines, "    • " .. r)
     end
   end
   table.insert(lines, "")
-  table.insert(lines, "  Category: " .. (entry.category or ""))
+  table.insert(lines, (is_zh and "  分類: " or "  Category: ") .. (entry.category or ""))
   table.insert(lines, "")
-  local hint = "  [q] close  [y] copy keys  [?] back  [Tab] lang"
-  if entry.install then
-    hint = "  [I] install  [Y] copy config  [y] copy keys  [?] back  [Tab] lang"
+  local hint
+  if is_zh then
+    hint = "  [q] 關閉  [y] 複製按鍵  [?] 返回  [Tab] 切換語言"
+    if entry.install then
+      hint = "  [I] 安裝  [Y] 複製設定  [y] 複製按鍵  [?] 返回  [Tab] 切換語言"
+    end
+  else
+    hint = "  [q] close  [y] copy keys  [?] back  [Tab] lang"
+    if entry.install then
+      hint = "  [I] install  [Y] copy config  [y] copy keys  [?] back  [Tab] lang"
+    end
   end
   table.insert(lines, hint)
 
@@ -463,7 +695,7 @@ function M.open_detail(entry)
     width = width,
     height = height,
     border = "rounded",
-    title = string.format(" Detail [%s] ", lang_label()),
+    title = string.format(is_zh and " 詳細 [%s] " or " Detail [%s] ", lang_label()),
     title_pos = "center",
     style = "minimal",
   })
@@ -482,7 +714,8 @@ function M.open_detail(entry)
 
   vim.keymap.set("n", "y", function()
     vim.fn.setreg("+", entry.keys)
-    vim.notify("Copied: " .. entry.keys, vim.log.levels.INFO)
+    local msg = get_lang() == "zh-TW" and ("已複製: " .. entry.keys) or ("Copied: " .. entry.keys)
+    vim.notify(msg, vim.log.levels.INFO)
     vim.api.nvim_win_close(win, true)
     M.open({ restore = true })
   end, opts)
@@ -490,7 +723,8 @@ function M.open_detail(entry)
   if entry.install then
     vim.keymap.set("n", "Y", function()
       vim.fn.setreg("+", entry.install)
-      vim.notify("Copied install config!", vim.log.levels.INFO)
+      local msg = get_lang() == "zh-TW" and "已複製安裝設定！" or "Copied install config!"
+      vim.notify(msg, vim.log.levels.INFO)
       vim.api.nvim_win_close(win, true)
       M.open({ restore = true })
     end, opts)
@@ -517,7 +751,8 @@ function M.open_history()
 end
 
 function M.open_categories()
-  vim.notify("tutor-again: categories coming soon", vim.log.levels.INFO)
+  local msg = get_lang() == "zh-TW" and "tutor-again: 分類功能即將推出" or "tutor-again: categories coming soon"
+  vim.notify(msg, vim.log.levels.INFO)
 end
 
 return M

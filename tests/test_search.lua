@@ -50,4 +50,37 @@ T["filter_entries"]["returns all for empty query"] = function()
   eq(#results, 2)
 end
 
+T["best_score"] = new_set()
+
+T["best_score"]["matches keys field"] = function()
+  local search = require("tutor-again.search")
+  local entry = { keys = "dd", name = "Delete line", tags = { "delete" }, category = "operators" }
+  assert(search.best_score("dd", entry) > 0)
+end
+
+T["best_score"]["matches name_zh"] = function()
+  local search = require("tutor-again.search")
+  local entry = { keys = "dd", name = "Delete line", name_zh = "刪除整行", tags = { "delete" }, category = "operators" }
+  assert(search.best_score("刪除", entry) > 0)
+end
+
+T["best_score"]["matches description"] = function()
+  local search = require("tutor-again.search")
+  local entry = { keys = "dd", name = "Delete line", description = "Delete the current line", tags = {}, category = "operators" }
+  assert(search.best_score("current", entry) > 0)
+end
+
+T["best_score"]["matches category aliases"] = function()
+  local search = require("tutor-again.search")
+  local entry = { keys = "h", name = "Left", tags = { "left" }, category = "movement" }
+  assert(search.best_score("navigate", entry) > 0, "should match 'navigate' alias for movement")
+  assert(search.best_score("移動", entry) > 0, "should match '移動' alias for movement")
+end
+
+T["best_score"]["returns 0 for unmatched"] = function()
+  local search = require("tutor-again.search")
+  local entry = { keys = "dd", name = "Delete line", tags = { "delete" }, category = "operators" }
+  eq(search.best_score("zzzzz", entry), 0)
+end
+
 return T

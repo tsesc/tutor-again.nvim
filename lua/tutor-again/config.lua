@@ -7,6 +7,13 @@ M.defaults = {
     max_entries = 500,
     path = vim.fn.stdpath("data") .. "/tutor-again/history.json",
   },
+  ai = {
+    enabled = true,
+    api_key = nil, -- fallback: $GEMINI_API_KEY
+    base_url = "https://generativelanguage.googleapis.com/v1beta/openai",
+    model = "gemini-2.5-flash-lite",
+    mode_key = "<C-a>",
+  },
 }
 
 function M.build(opts)
