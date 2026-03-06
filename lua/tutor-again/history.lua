@@ -3,6 +3,7 @@ local M = {}
 M._entries = {}
 M._path = nil
 M._max = 500
+M._save_timer = nil
 
 function M._set_path(path)
   M._path = path
@@ -14,8 +15,22 @@ function M._get_path()
   if config.history and config.history.path then
     M._path = config.history.path
   else
-    M._path = vim.fn.stdpath("data") .. "/tutor-again/history.json"
+    M._path = vim.fn.stdpath("state") .. "/tutor-again/history.json"
   end
+
+  -- Migration: move old data path to new state path
+  if vim.fn.filereadable(M._path) == 0 then
+    local old_path = M._path:gsub(vim.fn.stdpath("state"), vim.fn.stdpath("data"))
+    if old_path ~= M._path and vim.fn.filereadable(old_path) == 1 then
+      local dir = vim.fn.fnamemodify(M._path, ":h")
+      vim.fn.mkdir(dir, "p")
+      vim.fn.rename(old_path, M._path)
+      -- Clean up empty old directory
+      local old_dir = vim.fn.fnamemodify(old_path, ":h")
+      pcall(vim.fn.delete, old_dir, "d")
+    end
+  end
+
   return M._path
 end
 
@@ -39,7 +54,7 @@ function M.load()
   end
 end
 
-function M.save()
+function M._write_to_disk()
   local path = M._get_path()
   local dir = vim.fn.fnamemodify(path, ":h")
   vim.fn.mkdir(dir, "p")
@@ -49,8 +64,55 @@ function M.save()
   end
 end
 
+function M.save()
+  if M._save_timer then
+    M._save_timer:stop()
+    M._save_timer = nil
+  end
+  M._save_timer = vim.defer_fn(function()
+    M._save_timer = nil
+    M._write_to_disk()
+  end, 1000)
+end
+
+function M.clear()
+  M._entries = {}
+  if M._save_timer then
+    M._save_timer:stop()
+    M._save_timer = nil
+  end
+  local path = M._get_path()
+  if vim.fn.filereadable(path) == 1 then
+    vim.fn.delete(path)
+  end
+end
+
+function M._merge_disk()
+  local path = M._get_path()
+  if vim.fn.filereadable(path) == 0 then return end
+  local ok, lines = pcall(vim.fn.readfile, path)
+  if not ok or #lines == 0 then return end
+  local raw = table.concat(lines, "\n")
+  local ok2, disk_data = pcall(vim.fn.json_decode, raw)
+  if not ok2 or type(disk_data) ~= "table" then return end
+
+  local seen = {}
+  for _, entry in ipairs(M._entries) do
+    seen[entry.query] = true
+  end
+  for _, entry in ipairs(disk_data) do
+    if not seen[entry.query] then
+      table.insert(M._entries, entry)
+      seen[entry.query] = true
+    end
+  end
+end
+
 function M.add(query)
   if not query or query == "" then return end
+
+  -- Merge disk entries from other instances into memory
+  M._merge_disk()
 
   -- Remove duplicate
   for i, entry in ipairs(M._entries) do

@@ -5,7 +5,7 @@ M.defaults = {
   lang = "zh-TW",
   history = {
     max_entries = 500,
-    path = vim.fn.stdpath("data") .. "/tutor-again/history.json",
+    path = vim.fn.stdpath("state") .. "/tutor-again/history.json",
   },
   ai = {
     enabled = true,

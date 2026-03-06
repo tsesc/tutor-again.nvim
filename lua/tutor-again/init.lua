@@ -13,13 +13,16 @@ function M.setup(opts)
       require("tutor-again.ui").open_categories()
     elseif arg == "ai" then
       require("tutor-again.ui").open({ mode = "ai" })
+    elseif arg == "clear-history" then
+      require("tutor-again.history").clear()
+      vim.notify("tutor-again: history cleared", vim.log.levels.INFO)
     else
       require("tutor-again.ui").open()
     end
   end, {
     nargs = "?",
     complete = function()
-      return { "history", "categories", "ai" }
+      return { "history", "categories", "ai", "clear-history" }
     end,
     desc = "Open tutor-again",
   })
