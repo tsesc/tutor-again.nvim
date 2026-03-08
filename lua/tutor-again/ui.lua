@@ -3,6 +3,7 @@ local M = {}
 local search = require("tutor-again.search")
 local db = require("tutor-again.db")
 local history = require("tutor-again.history")
+local ai_history = require("tutor-again.ai_history")
 
 local state = {
   input_buf = nil,
@@ -17,6 +18,8 @@ local state = {
   mode = "search", -- "search" or "ai"
   ai_job_id = nil,
   ai_response = "",
+  ai_showing_history = false,  -- true when displaying AI history list in AI mode
+  ai_history_results = {},     -- current AI history entries being shown
 }
 
 local function get_lang()
@@ -258,6 +261,41 @@ local function show_ai_placeholder()
   set_results_lines({ placeholder })
 end
 
+local function render_ai_history()
+  if not state.results_buf or not vim.api.nvim_buf_is_valid(state.results_buf) then return end
+
+  local entries = ai_history.get_all()
+  local lines = {}
+  state.ai_history_results = {}
+
+  for i, entry in ipairs(entries) do
+    if i > 20 then break end
+    local time_str = history.format_time(entry.timestamp, get_lang())
+    local q = entry.question
+    local max_q_len = 40
+    if #q > max_q_len then
+      q = q:sub(1, max_q_len - 1) .. "…"
+    end
+    table.insert(lines, string.format("  %s%s%s", q, string.rep(" ", math.max(1, max_q_len + 2 - #q)), time_str))
+    table.insert(state.ai_history_results, entry)
+  end
+
+  if #lines == 0 then
+    state.ai_showing_history = false
+    show_ai_placeholder()
+    return
+  end
+
+  state.ai_showing_history = true
+  state.selected_idx = 1
+
+  vim.api.nvim_set_option_value("modifiable", true, { buf = state.results_buf })
+  vim.api.nvim_buf_set_lines(state.results_buf, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = state.results_buf })
+
+  M._highlight_selected()
+end
+
 local function update_results_footer()
   if not state.results_win or not vim.api.nvim_win_is_valid(state.results_win) then return end
   local footer = state.mode == "ai"
@@ -269,7 +307,7 @@ end
 local function toggle_mode()
   if state.mode == "search" then
     state.mode = "ai"
-    show_ai_placeholder()
+    render_ai_history()
   else
     state.mode = "search"
     render_results(get_current_query())
@@ -294,6 +332,8 @@ local function send_ai_query()
   end
 
   state.ai_response = ""
+  state.ai_showing_history = false
+  state.ai_history_results = {}
   local thinking
   if get_lang() == "zh-TW" then
     thinking = "  思考中..."
@@ -387,7 +427,7 @@ function M.open(opts)
 
   -- Initial render based on mode
   if state.mode == "ai" then
-    show_ai_placeholder()
+    render_ai_history()
   else
     render_results("")
   end
@@ -400,12 +440,19 @@ function M.open(opts)
 
   vim.keymap.set({ "i", "n" }, "<Down>", function()
     if state.mode == "ai" then
-      -- Scroll results down in AI mode
-      if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
-        local count = vim.api.nvim_buf_line_count(state.results_buf)
-        local cursor = vim.api.nvim_win_get_cursor(state.results_win)
-        if cursor[1] < count then
-          pcall(vim.api.nvim_win_set_cursor, state.results_win, { cursor[1] + 1, 0 })
+      if state.ai_showing_history then
+        local line_count = vim.api.nvim_buf_line_count(state.results_buf)
+        if state.selected_idx < line_count then
+          state.selected_idx = state.selected_idx + 1
+          M._highlight_selected()
+        end
+      else
+        if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
+          local count = vim.api.nvim_buf_line_count(state.results_buf)
+          local cursor = vim.api.nvim_win_get_cursor(state.results_win)
+          if cursor[1] < count then
+            pcall(vim.api.nvim_win_set_cursor, state.results_win, { cursor[1] + 1, 0 })
+          end
         end
       end
     else
@@ -419,10 +466,17 @@ function M.open(opts)
 
   vim.keymap.set({ "i", "n" }, "<Up>", function()
     if state.mode == "ai" then
-      if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
-        local cursor = vim.api.nvim_win_get_cursor(state.results_win)
-        if cursor[1] > 1 then
-          pcall(vim.api.nvim_win_set_cursor, state.results_win, { cursor[1] - 1, 0 })
+      if state.ai_showing_history then
+        if state.selected_idx > 1 then
+          state.selected_idx = state.selected_idx - 1
+          M._highlight_selected()
+        end
+      else
+        if state.results_win and vim.api.nvim_win_is_valid(state.results_win) then
+          local cursor = vim.api.nvim_win_get_cursor(state.results_win)
+          if cursor[1] > 1 then
+            pcall(vim.api.nvim_win_set_cursor, state.results_win, { cursor[1] - 1, 0 })
+          end
         end
       end
     else
@@ -435,7 +489,24 @@ function M.open(opts)
 
   vim.keymap.set({ "i", "n" }, "<CR>", function()
     if state.mode == "ai" then
-      send_ai_query()
+      if state.ai_showing_history then
+        local item = state.ai_history_results[state.selected_idx]
+        if item then
+          state.ai_showing_history = false
+          state.ai_response = item.response
+          local ai = require("tutor-again.ai")
+          local is_zh = get_lang() == "zh-TW"
+          local header = (is_zh and "Q: " or "Q: ") .. item.question
+          local wrapped = ai.wrap_text(item.response, 64)
+          local display = { "  " .. header, "" }
+          for _, line in ipairs(wrapped) do
+            table.insert(display, "  " .. line)
+          end
+          set_results_lines(display)
+        end
+      else
+        send_ai_query()
+      end
     else
       on_select()
     end
@@ -447,7 +518,7 @@ function M.open(opts)
     if state.mode == "search" then
       render_results(get_current_query())
     elseif state.ai_response == "" then
-      show_ai_placeholder()
+      render_ai_history()
     end
   end, kopts)
 
@@ -464,6 +535,16 @@ function M.open(opts)
       vim.fn.setreg("+", text)
       local msg = get_lang() == "zh-TW" and "已複製到剪貼簿" or "Copied to clipboard"
       vim.notify(msg, vim.log.levels.INFO)
+    end
+  end, kopts)
+
+  vim.keymap.set({ "i", "n" }, "<C-d>", function()
+    if state.mode == "ai" and state.ai_showing_history then
+      local item = state.ai_history_results[state.selected_idx]
+      if item then
+        ai_history.delete(item.id)
+        render_ai_history()
+      end
     end
   end, kopts)
 
