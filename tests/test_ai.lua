@@ -221,4 +221,88 @@ T["get_api_key"]["prefers config over env"] = function()
   vim.env.GEMINI_API_KEY = orig_gemini
 end
 
+T["_read_config_files"] = new_set()
+
+T["_read_config_files"]["returns nil when false"] = function()
+  local ai = require("tutor-again.ai")
+  eq(ai._read_config_files(false), nil)
+end
+
+T["_read_config_files"]["returns nil when nil"] = function()
+  local ai = require("tutor-again.ai")
+  eq(ai._read_config_files(nil), nil)
+end
+
+T["_read_config_files"]["reads specified file paths"] = function()
+  local ai = require("tutor-again.ai")
+  local tmp = vim.fn.tempname() .. ".lua"
+  vim.fn.writefile({ "vim.g.mapleader = ' '", "vim.opt.number = true" }, tmp)
+  local result = ai._read_config_files({ tmp })
+  assert(result:find("# User's Neovim Config"), "should have config header")
+  assert(result:find("vim.g.mapleader"), "should contain file content")
+  assert(result:find("vim.opt.number"), "should contain file content")
+  vim.fn.delete(tmp)
+end
+
+T["_read_config_files"]["skips non-existent files"] = function()
+  local ai = require("tutor-again.ai")
+  local result = ai._read_config_files({ "/tmp/does_not_exist_xyz.lua" })
+  eq(result, nil)
+end
+
+T["_read_config_files"]["skips empty files"] = function()
+  local ai = require("tutor-again.ai")
+  local tmp = vim.fn.tempname() .. ".lua"
+  vim.fn.writefile({}, tmp)
+  local result = ai._read_config_files({ tmp })
+  eq(result, nil)
+  vim.fn.delete(tmp)
+end
+
+T["_read_config_files"]["truncates files over 200 lines"] = function()
+  local ai = require("tutor-again.ai")
+  local tmp = vim.fn.tempname() .. ".lua"
+  local long_content = {}
+  for i = 1, 250 do
+    table.insert(long_content, "-- line " .. i)
+  end
+  vim.fn.writefile(long_content, tmp)
+  local result = ai._read_config_files({ tmp })
+  assert(result:find("truncated at 200 lines"), "should show truncation notice")
+  assert(result:find("-- line 200"), "should include line 200")
+  assert(not result:find("-- line 201"), "should not include line 201")
+  vim.fn.delete(tmp)
+end
+
+T["_read_config_files"]["true resolves to stdpath config init.lua"] = function()
+  local ai = require("tutor-again.ai")
+  -- We can't guarantee init.lua exists in test env, but we can test the path resolution
+  -- by checking that _read_config_files(true) either returns nil (file missing) or includes the path
+  local result = ai._read_config_files(true)
+  local expected_path = vim.fn.stdpath("config") .. "/init.lua"
+  if vim.fn.filereadable(expected_path) == 1 then
+    assert(result:find("# User's Neovim Config"), "should have config header when file exists")
+  else
+    eq(result, nil)
+  end
+end
+
+T["build_system_prompt"]["include_config false excludes user config"] = function()
+  local ai = require("tutor-again.ai")
+  require("tutor-again").config = { ai = { include_config = false } }
+  local prompt = ai.build_system_prompt("en")
+  assert(not prompt:find("# User's Neovim Config"), "should not have config section when disabled")
+end
+
+T["build_system_prompt"]["include_config with path includes file content"] = function()
+  local ai = require("tutor-again.ai")
+  local tmp = vim.fn.tempname() .. ".lua"
+  vim.fn.writefile({ "vim.g.mapleader = ','" }, tmp)
+  require("tutor-again").config = { ai = { include_config = { tmp } } }
+  local prompt = ai.build_system_prompt("en")
+  assert(prompt:find("# User's Neovim Config"), "should have config section")
+  assert(prompt:find("vim.g.mapleader = ','"), "should contain file content")
+  vim.fn.delete(tmp)
+end
+
 return T

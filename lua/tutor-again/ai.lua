@@ -11,6 +11,37 @@ function M.get_api_key()
   return key
 end
 
+function M._read_config_files(include_config)
+  if not include_config then return nil end
+
+  local paths = {}
+  if type(include_config) == "table" then
+    paths = include_config
+  elseif include_config == true then
+    paths = { vim.fn.stdpath("config") .. "/init.lua" }
+  else
+    return nil
+  end
+
+  local sections = {}
+  for _, path in ipairs(paths) do
+    local expanded = vim.fn.expand(path)
+    if vim.fn.filereadable(expanded) == 1 then
+      local file_lines = vim.fn.readfile(expanded)
+      if #file_lines > 0 then
+        if #file_lines > 200 then
+          file_lines = vim.list_slice(file_lines, 1, 200)
+          table.insert(file_lines, "-- ... (truncated at 200 lines)")
+        end
+        table.insert(sections, "## " .. vim.fn.fnamemodify(expanded, ":~") .. "\n```lua\n" .. table.concat(file_lines, "\n") .. "\n```")
+      end
+    end
+  end
+
+  if #sections == 0 then return nil end
+  return "# User's Neovim Config\n\n" .. table.concat(sections, "\n\n")
+end
+
 function M.build_system_prompt(lang)
   lang = lang or "zh-TW"
   local entries = db.all()
@@ -130,6 +161,15 @@ function M.build_system_prompt(lang)
       table.insert(lines, "- " .. table.concat(parts, " -- "))
     end
     table.insert(lines, "")
+  end
+
+  -- Append user config if opted in
+  local config = require("tutor-again").config
+  local include_config = config.ai and config.ai.include_config
+  local config_section = M._read_config_files(include_config)
+  if config_section then
+    table.insert(lines, "")
+    table.insert(lines, config_section)
   end
 
   return table.concat(lines, "\n")

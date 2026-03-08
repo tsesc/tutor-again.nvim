@@ -13,6 +13,7 @@ M.defaults = {
     base_url = "https://generativelanguage.googleapis.com/v1beta/openai",
     model = "gemini-2.5-flash-lite",
     mode_key = "<C-a>",
+    include_config = false, -- false | true | { "path1", "path2" }
   },
 }
 
