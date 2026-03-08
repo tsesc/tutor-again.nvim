@@ -196,9 +196,9 @@ local function build_hints()
   local is_zh = get_lang() == "zh-TW"
   if state.mode == "ai" then
     if is_zh then
-      return string.format(" %s=搜尋 Tab=語言 C-y=複製 ", mode_key)
+      return string.format(" %s=搜尋 Tab=語言 C-y=複製 C-d=刪除 ", mode_key)
     else
-      return string.format(" %s=search Tab=lang C-y=copy ", mode_key)
+      return string.format(" %s=search Tab=lang C-y=copy C-d=del ", mode_key)
     end
   else
     if is_zh then
@@ -360,6 +360,13 @@ local function send_ai_query()
     end,
     on_done = function()
       state.ai_job_id = nil
+      if state.ai_response ~= "" then
+        local config = require("tutor-again").config
+        local max = config.ai and config.ai.history_max_entries
+        if max ~= 0 then
+          ai_history.add(query, state.ai_response, get_lang())
+        end
+      end
     end,
     on_error = function(msg)
       state.ai_job_id = nil
