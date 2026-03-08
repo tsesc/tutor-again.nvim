@@ -115,6 +115,7 @@ require("tutor-again").setup({
     base_url = "https://generativelanguage.googleapis.com/v1beta/openai",
     model = "gemini-2.5-flash-lite",   -- string or list for fallback
     mode_key = "<C-a>",   -- key to toggle search/AI mode
+    include_config = false, -- include your Neovim config in AI context
   },
 })
 ```
@@ -137,6 +138,29 @@ Or use [OpenRouter](https://openrouter.ai/) (has free models):
 ```bash
 export OPENROUTER_API_KEY="your-key-here"
 ```
+
+#### Personalized AI with Your Config
+
+By default, the AI tutor doesn't see your personal Neovim config. Enable `include_config` to let it answer questions like "what is my leader key?" or "show me my keymaps":
+
+```lua
+ai = {
+  include_config = true,  -- sends ~/.config/nvim/init.lua
+}
+```
+
+Or specify exact files:
+
+```lua
+ai = {
+  include_config = {
+    vim.fn.stdpath("config") .. "/init.lua",
+    vim.fn.stdpath("config") .. "/lua/keymaps.lua",
+  },
+}
+```
+
+Files are read each time you ask a question (max 200 lines per file). Set to `false` (default) to keep your config private.
 
 With OpenRouter, update config:
 
@@ -254,7 +278,7 @@ Share the same tool between English and Chinese speakers. Toggle with a single k
 ### Run Tests
 
 ```bash
-# All tests (64 cases)
+# All tests (77 cases)
 make test
 
 # Unit tests only
