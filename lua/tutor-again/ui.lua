@@ -100,6 +100,9 @@ local function close()
   end
   state.input_win = nil
   state.results_win = nil
+  state.ai_response = ""
+  state.ai_showing_history = false
+  state.ai_history_results = {}
 end
 
 local function get_current_query()
@@ -310,6 +313,8 @@ local function toggle_mode()
     render_ai_history()
   else
     state.mode = "search"
+    state.ai_showing_history = false
+    state.ai_history_results = {}
     render_results(get_current_query())
   end
   update_input_title()
