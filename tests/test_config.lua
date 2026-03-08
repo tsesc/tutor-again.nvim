@@ -49,4 +49,24 @@ T["build"]["deep merges ai config"] = function()
   assert(c.ai.mode_key, "ai.mode_key should be preserved")
 end
 
+T["config"] = new_set()
+
+T["config"]["ai history_max_entries default"] = function()
+  local config = require("tutor-again.config")
+  local result = config.build({})
+  eq(result.ai.history_max_entries, 100)
+end
+
+T["config"]["ai history_max_entries override"] = function()
+  local config = require("tutor-again.config")
+  local result = config.build({ ai = { history_max_entries = 50 } })
+  eq(result.ai.history_max_entries, 50)
+end
+
+T["config"]["ai history_max_entries zero disables"] = function()
+  local config = require("tutor-again.config")
+  local result = config.build({ ai = { history_max_entries = 0 } })
+  eq(result.ai.history_max_entries, 0)
+end
+
 return T

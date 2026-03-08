@@ -14,6 +14,7 @@ M.defaults = {
     model = "gemini-2.5-flash-lite",
     mode_key = "<C-a>",
     include_config = false, -- false | true | { "path1", "path2" }
+    history_max_entries = 100,
   },
 }
 
