@@ -7,6 +7,7 @@ test:
 
 test-unit:
 	nvim --headless -u scripts/minimal_init.lua \
+		-c "lua MiniTest.run_file('tests/test_json_store.lua')" \
 		-c "lua MiniTest.run_file('tests/test_search.lua')" \
 		-c "lua MiniTest.run_file('tests/test_history.lua')" \
 		-c "lua MiniTest.run_file('tests/test_ai.lua')" \

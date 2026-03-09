@@ -275,11 +275,18 @@ local function render_ai_history()
     if i > 20 then break end
     local time_str = history.format_time(entry.timestamp, get_lang())
     local q = entry.question
-    local max_q_len = 40
-    if #q > max_q_len then
-      q = q:sub(1, max_q_len - 1) .. "…"
+    local max_q_width = 40
+    -- Truncate by display width (CJK chars = 2 columns)
+    local qw = vim.api.nvim_strwidth(q)
+    if qw > max_q_width then
+      -- Trim until display width fits
+      while vim.api.nvim_strwidth(q) > max_q_width - 1 do
+        q = vim.fn.strcharpart(q, 0, vim.fn.strchars(q) - 1)
+      end
+      q = q .. "…"
+      qw = vim.api.nvim_strwidth(q)
     end
-    table.insert(lines, string.format("  %s%s%s", q, string.rep(" ", math.max(1, max_q_len + 2 - #q)), time_str))
+    table.insert(lines, string.format("  %s%s%s", q, string.rep(" ", math.max(1, max_q_width + 2 - qw)), time_str))
     table.insert(state.ai_history_results, entry)
   end
 
@@ -501,7 +508,8 @@ function M.open(opts)
 
   vim.keymap.set({ "i", "n" }, "<CR>", function()
     if state.mode == "ai" then
-      if state.ai_showing_history then
+      local query = get_current_query()
+      if state.ai_showing_history and query == "" then
         local item = state.ai_history_results[state.selected_idx]
         if item then
           state.ai_showing_history = false
@@ -548,6 +556,17 @@ function M.open(opts)
       local msg = get_lang() == "zh-TW" and "已複製到剪貼簿" or "Copied to clipboard"
       vim.notify(msg, vim.log.levels.INFO)
     end
+  end, kopts)
+
+  vim.keymap.set({ "i", "n" }, "<BS>", function()
+    if state.mode == "ai" and not state.ai_showing_history and get_current_query() == "" then
+      state.ai_response = ""
+      render_ai_history()
+      return
+    end
+    -- Default backspace behavior
+    local key = vim.api.nvim_replace_termcodes("<BS>", true, false, true)
+    vim.api.nvim_feedkeys(key, "n", false)
   end, kopts)
 
   vim.keymap.set({ "i", "n" }, "<C-d>", function()

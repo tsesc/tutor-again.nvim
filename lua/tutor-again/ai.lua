@@ -286,18 +286,26 @@ function M._request(model, body_table, api_key, base_url, callbacks)
     end
   end
 
-  -- Write auth header to temp file to avoid exposing API key in process args
-  local header_file = vim.fn.tempname()
-  vim.fn.writefile({ 'header = "Authorization: Bearer ' .. api_key .. '"' }, header_file)
-
-  local job_id = vim.fn.jobstart({
+  -- Build curl args; skip auth header for local servers (e.g. Ollama)
+  local curl_args = {
     "curl", "-s", "-N",
     "-X", "POST",
     base_url .. "/chat/completions",
     "-H", "Content-Type: application/json",
-    "--config", header_file,
-    "-d", body,
-  }, {
+  }
+
+  local header_file
+  if api_key and api_key ~= "" then
+    header_file = vim.fn.tempname()
+    vim.fn.writefile({ 'header = "Authorization: Bearer ' .. api_key .. '"' }, header_file)
+    table.insert(curl_args, "--config")
+    table.insert(curl_args, header_file)
+  end
+
+  table.insert(curl_args, "-d")
+  table.insert(curl_args, body)
+
+  local job_id = vim.fn.jobstart(curl_args, {
     stdout_buffered = false,
     on_stdout = function(_, data, _)
       if not data then return end
@@ -381,16 +389,7 @@ function M.ask(question, lang, opts)
     return nil
   end
 
-  local api_key = M.get_api_key()
-  if not api_key or api_key == "" then
-    if on_error then
-      local msg = lang == "zh-TW"
-        and "未設定 API key。請設定 GEMINI_API_KEY 環境變數或 config ai.api_key"
-        or "No API key. Set GEMINI_API_KEY env var or config ai.api_key"
-      on_error(msg)
-    end
-    return nil
-  end
+  local api_key = M.get_api_key() or ""
 
   local config = require("tutor-again").config
   local base_url = config.ai.base_url

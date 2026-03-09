@@ -1,21 +1,19 @@
-local M = {}
+local store = require("tutor-again.json_store")
+local M = store.create({
+  filename = "history.json",
+  max = 500,
+  dedup_key = "query",
+})
 
-M._entries = {}
-M._path = nil
-M._max = 500
-M._save_timer = nil
-
-function M._set_path(path)
-  M._path = path
-end
-
+-- Override _get_path: read config path + migration logic (history-specific)
+local _base_get_path = M._get_path
 function M._get_path()
   if M._path then return M._path end
   local config = require("tutor-again").config
   if config.history and config.history.path then
     M._path = config.history.path
   else
-    M._path = vim.fn.stdpath("state") .. "/tutor-again/history.json"
+    M._path = _base_get_path()
   end
 
   -- Migration: move old data path to new state path
@@ -34,85 +32,6 @@ function M._get_path()
   end
 
   return M._path
-end
-
-function M.load()
-  local path = M._get_path()
-  if vim.fn.filereadable(path) == 0 then
-    M._entries = {}
-    return
-  end
-  local ok, lines = pcall(vim.fn.readfile, path)
-  if not ok or #lines == 0 then
-    M._entries = {}
-    return
-  end
-  local raw = table.concat(lines, "\n")
-  local ok2, data = pcall(vim.fn.json_decode, raw)
-  if ok2 and type(data) == "table" then
-    M._entries = data
-  else
-    M._entries = {}
-  end
-end
-
-function M._write_to_disk()
-  local path = M._get_path()
-  local dir = vim.fn.fnamemodify(path, ":h")
-  vim.fn.mkdir(dir, "p")
-  local ok, encoded = pcall(vim.fn.json_encode, M._entries)
-  if ok then
-    -- Atomic write: write to temp file then rename to reduce race window
-    local tmp = path .. ".tmp." .. vim.fn.getpid()
-    local wok = pcall(vim.fn.writefile, { encoded }, tmp)
-    if wok then
-      vim.fn.rename(tmp, path)
-    end
-  end
-end
-
-function M.save()
-  if M._save_timer then
-    M._save_timer:stop()
-    M._save_timer = nil
-  end
-  M._save_timer = vim.defer_fn(function()
-    M._save_timer = nil
-    M._write_to_disk()
-  end, 1000)
-end
-
-function M.clear()
-  M._entries = {}
-  if M._save_timer then
-    M._save_timer:stop()
-    M._save_timer = nil
-  end
-  local path = M._get_path()
-  if vim.fn.filereadable(path) == 1 then
-    vim.fn.delete(path)
-  end
-end
-
-function M._merge_disk()
-  local path = M._get_path()
-  if vim.fn.filereadable(path) == 0 then return end
-  local ok, lines = pcall(vim.fn.readfile, path)
-  if not ok or #lines == 0 then return end
-  local raw = table.concat(lines, "\n")
-  local ok2, disk_data = pcall(vim.fn.json_decode, raw)
-  if not ok2 or type(disk_data) ~= "table" then return end
-
-  local seen = {}
-  for _, entry in ipairs(M._entries) do
-    seen[entry.query] = true
-  end
-  for _, entry in ipairs(disk_data) do
-    if not seen[entry.query] then
-      table.insert(M._entries, entry)
-      seen[entry.query] = true
-    end
-  end
 end
 
 function M.add(query)
@@ -146,13 +65,6 @@ function M.add(query)
   end
 
   M.save()
-end
-
-function M.get_all()
-  if #M._entries == 0 then
-    M.load()
-  end
-  return M._entries
 end
 
 function M.format_time(timestamp, lang)
